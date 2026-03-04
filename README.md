@@ -20,6 +20,8 @@ A lightweight, customisable macOS menu bar utility that replaces the default Wi-
 
 <br>
 
+<img src=".github/assets/app-preview.png" alt="Online Indicator Preview" width="100%" />
+
 ## Why Online Indicator?
 
 The macOS WiFi icon only shows that you are connected to a router, not whether your internet is actually working or being blocked. Online Indicator replaces it with a live status icon that verifies real internet connectivity at the network level, so you can instantly see if you are online, offline, or blocked without opening any apps, giving you a smarter and slightly geekier way to understand your connection at a glance.
