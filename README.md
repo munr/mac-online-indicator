@@ -18,6 +18,8 @@ A lightweight, customisable macOS menu bar utility that replaces the default Wi-
   -->
 </p>
 
+<br>
+
 ## Why Online Indicator?
 
 The macOS Wi-Fi icon only shows whether you’re connected to a router. It doesn’t tell you if your internet is actually working or if something is blocking your connection.
@@ -26,6 +28,7 @@ Online Indicator replaces it with a live status icon that checks whether your in
 
 You can also customize the icon using Apple’s SF Symbols and choose your own colors for each status, so it looks and works the way you prefer. This way, you can understand your network status at a glance.
 
+<br>
 
 ## Features
 
@@ -36,6 +39,8 @@ You can also customize the icon using Apple’s SF Symbols and choose your own c
 - **Fully customisable icons** — choose any SF Symbol and any colour for each state
 - **Optional menu bar label** — add a short text label alongside the icon
 - **Local IP address display** — see your IPv4 and IPv6 addresses directly from the menu
+
+<br>
 
 ## Download & Install
 
@@ -64,6 +69,8 @@ Then open the app normally.
 > 💡 **Why does this happen?**
 > Apple requires a $99/year developer certificate to "notarise" apps. Online Indicator is free and independent, so it skips that. The warning is Apple's way of flagging uncertified apps — not a sign that anything is wrong.
 
+<br>
+
 ## Privacy Policy
 
 Online Indicator collects no data. Period.
@@ -74,6 +81,7 @@ Online Indicator collects no data. Period.
 
 The only outbound network request the app makes is the connectivity probe — a simple HTTP request to `captive.apple.com` (or your custom URL) to check if the internet is reachable. This is identical to what macOS itself does internally.
 
+<br>
 
 ## License
 
