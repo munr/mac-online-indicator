@@ -5,7 +5,7 @@
 <h1 align="center">Online Indicator</h1>
 
 <p align="center">
-A lightweight, customisable macOS menu bar utility that replaces the default Wi-Fi icon with a color-coded status indicators giving you a clear view of your connection at a glance.
+A macOS menu bar app that replaces the Wi-Fi icon with customisable status indicators.
 </p>
 <br>
 <p align="center">
