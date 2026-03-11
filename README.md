@@ -9,12 +9,22 @@ A macOS menu bar app that replaces the Wi-Fi icon with customisable status indic
 </p>
 <br>
 <p align="center">
-  <img src="https://img.shields.io/github/v/release/bornexplorer/OnlineIndicator?style=flat&color=%23FE9326">
-  <img src="https://img.shields.io/badge/platform-macOS-lightgrey?logo=apple&style=flat&color=%231a1a1a">
-  <img src="https://img.shields.io/github/license/bornexplorer/OnlineIndicator?style=flat&color=%23248636">
+  <a href="#">
+  <img src="https://img.shields.io/badge/platform-macOS-lightgrey?logo=apple&style=flat&color=%23FF5C60">
+  </a>
+  <a href="https://github.com/bornexplorer/OnlineIndicator/releases" target="_blank">
+  <img src="https://img.shields.io/github/v/release/bornexplorer/OnlineIndicator?style=flat&color=%23FAC800">
+  </a>
+  <a href="https://github.com/bornexplorer/OnlineIndicator/blob/main/LICENSE" target="_blank">
+  <img src="https://img.shields.io/github/license/bornexplorer/OnlineIndicator?style=flat&color=%2334C759">
+  </a>
+  <a href="https://ko-fi.com/bornexplorer" target="_blank">
+  <img src="https://img.shields.io/badge/Ko--fi-FF5E5B?logo=ko-fi&logoColor=white">
+  </a>
 </p>
-
 <br>
+
+
 
 <img src=".github/assets/app-preview.png" alt="Online Indicator Preview" width="100%" />
 
