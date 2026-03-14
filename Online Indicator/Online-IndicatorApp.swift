@@ -32,7 +32,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
     private let knownNetworksTag = 900
 
     private var currentStatus: AppState.ConnectionStatus = .noNetwork
-    private var lastWifiName: String?
     private var lastIPv4: String?
     private var lastIPv6: String?
 
@@ -89,7 +88,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
 
     func menuWillOpen(_ menu: NSMenu) {
         let addresses = IPAddressProvider.current()
-        lastWifiName = addresses.wifiName
         lastIPv4 = addresses.ipv4
         lastIPv6 = addresses.ipv6
 
@@ -109,7 +107,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
             available: addresses.ipv6 != nil
         )
 
-        refreshKnownNetworks(currentSSID: addresses.wifiName)
+        // TODO: Re-enable once Known Networks feature is ready
+        // refreshKnownNetworks(currentSSID: addresses.wifiName)
     }
 
     // MARK: - Known Networks
@@ -251,9 +250,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
 
         menu.addItem(.separator())
 
-        let wifiItem = NSMenuItem(title: "", action: #selector(copyWifiName), keyEquivalent: "")
+        let wifiItem = NSMenuItem(title: "", action: #selector(openWiFiSettings), keyEquivalent: "")
         wifiItem.target = self
-        wifiItem.toolTip = "Click to copy"
+        wifiItem.toolTip = "Click to open Wi-Fi Settings"
         wifiItem.attributedTitle = ipAttributedString(label: "WiFi", value: "Loading…", available: false)
         wifiMenuItem = wifiItem
         menu.addItem(wifiItem)
@@ -276,9 +275,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
 
         // Known networks items are inserted dynamically here each time the menu opens.
         // A tagged separator marks the insertion point.
-        let knownNetworksAnchor = NSMenuItem.separator()
-        knownNetworksAnchor.tag = knownNetworksTag
-        menu.addItem(knownNetworksAnchor)
+        // TODO: Re-enable once Known Networks feature is ready
+        // let knownNetworksAnchor = NSMenuItem.separator()
+        // knownNetworksAnchor.tag = knownNetworksTag
+        // menu.addItem(knownNetworksAnchor)
 
         let settingsItem = NSMenuItem(title: "Settings", action: #selector(openSettings), keyEquivalent: "")
         settingsItem.target = self
@@ -318,13 +318,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSWindowDele
     }
 
     // MARK: - Copy actions
-
-    @objc private func copyWifiName() {
-        guard let name = lastWifiName else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(name, forType: .string)
-        showCopiedTooltip(text: "WiFi Copied")
-    }
 
     @objc private func copyIPv4() {
         guard let ip = lastIPv4 else { return }
