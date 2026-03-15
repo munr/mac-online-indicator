@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var pingURL          = ""
     @State private var pingURLSaved     = false
     @State private var pingURLInvalid   = false
+    @State private var showKnownNetworks = true
     @State private var isLaunchEnabled  = false
     @State private var loginItemError: String?
 
@@ -178,6 +179,7 @@ struct SettingsView: View {
             isLaunchEnabled = LoginItemManager.shared.isEnabled()
             intervalText    = formatInterval(interval)
             pingURL         = UserDefaults.standard.string(for: .pingURL) ?? ""
+            showKnownNetworks = UserDefaults.standard.bool(for: .showKnownNetworks, default: true)
             connectedSlot   = IconPreferences.slot(for: .connected)
             blockedSlot     = IconPreferences.slot(for: .blocked)
             noNetworkSlot   = IconPreferences.slot(for: .noNetwork)
@@ -227,6 +229,21 @@ struct SettingsView: View {
                             }
                     }
 
+                    Divider().padding(.leading, 56)
+                    
+                    SettingsRow(
+                        icon: "wifi",
+                        iconColor: .teal,
+                        title: "Show Known Networks",
+                        subtitle: "Display nearby saved Wi-Fi networks in the menu"
+                    ) {
+                        Toggle("", isOn: $showKnownNetworks)
+                            .labelsHidden()
+                            .onChange(of: showKnownNetworks) { _, newValue in
+                                UserDefaults.standard.set(newValue, for: .showKnownNetworks)
+                            }
+                    }
+                    
                     Divider().padding(.leading, 56)
 
                     SettingsRow(

@@ -17,6 +17,10 @@ final class MenuBuilder: NSObject {
     private(set) var lastIPv6: String?
 
     private let knownNetworksTag = 900
+    
+    private var shouldShowKnownNetworks: Bool {
+        UserDefaults.standard.bool(for: .showKnownNetworks, default: true)
+    }
 
     // MARK: - Callbacks (set by AppDelegate after init)
 
@@ -119,6 +123,8 @@ final class MenuBuilder: NSObject {
         while let old = menu.items.first(where: { $0.tag == knownNetworksTag + 1 }) {
             menu.removeItem(old)
         }
+        
+        guard shouldShowKnownNetworks else { return }
 
         guard let anchorIndex = menu.items.firstIndex(where: { $0.tag == knownNetworksTag }) else { return }
 
