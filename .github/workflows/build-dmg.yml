@@ -1,0 +1,67 @@
+name: Build DMG
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build Archive
+        run: |
+          xcodebuild archive \
+            -project "Online Indicator.xcodeproj" \
+            -scheme "Online Indicator" \
+            -configuration Release \
+            -archivePath "${{ github.workspace }}/build/OnlineIndicator.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Export Archive
+        run: |
+          cat > /tmp/ExportOptions.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>copy-only</string>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath "${{ github.workspace }}/build/OnlineIndicator.xcarchive" \
+            -exportPath "${{ github.workspace }}/build/export" \
+            -exportOptionsPlist /tmp/ExportOptions.plist \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Create DMG
+        run: |
+          create-dmg \
+            --volname "Online Indicator" \
+            --window-size 600 400 \
+            --icon-size 128 \
+            --icon "Online Indicator.app" 160 180 \
+            --hide-extension "Online Indicator.app" \
+            --app-drop-link 420 180 \
+            "OnlineIndicator-${{ github.ref_name }}.dmg" \
+            "${{ github.workspace }}/build/export/"
+
+      - name: Upload DMG to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "OnlineIndicator-${{ github.ref_name }}.dmg"

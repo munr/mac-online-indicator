@@ -1,6 +1,7 @@
 import Foundation
 import Darwin
 import CoreWLAN
+import SystemConfiguration
 
 struct IPAddressProvider {
 
@@ -8,27 +9,51 @@ struct IPAddressProvider {
         var ipv4: String?
         var ipv6: String?
         var wifiName: String?
+        var gateway: String?
+        var dnsServers: [String] = []
     }
 
-    /// Reads the current IPv4, IPv6, and Wi-Fi network name from the active primary network interface.
-    /// Prefers en0 (Wi-Fi) then en1/en2 (Ethernet). Strips the scope-ID suffix from IPv6.
+    /// Reads the current IPv4, IPv6, Wi-Fi name, default gateway, and DNS servers.
+    /// Prefers `en*` interfaces (Wi-Fi / Ethernet), then falls back to any other active non-loopback
+    /// interface (e.g. Thunderbolt Ethernet, USB adapters). Strips the scope-ID suffix from IPv6.
     static func current() -> Addresses {
         var result = Addresses()
-        result.wifiName = CWWiFiClient.shared().interface()?.ssid()
+        result.wifiName  = CWWiFiClient.shared().interface()?.ssid()
+        result.gateway   = defaultGateway()
+        result.dnsServers = currentDNSServers()
 
         var ifaddr: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&ifaddr) == 0 else { return result }
         defer { freeifaddrs(ifaddr) }
 
-        // Priority order for interface names
-        let preferred = ["en0", "en1", "en2", "en3"]
-
+        // Collect all active, non-loopback interface names in encounter order.
+        var seenNames: [String] = []
         var ptr = ifaddr
+        while let current = ptr {
+            defer { ptr = current.pointee.ifa_next }
+            let name = String(cString: current.pointee.ifa_name)
+            guard !name.hasPrefix("lo"), !seenNames.contains(name) else { continue }
+            seenNames.append(name)
+        }
+
+        // Sort: en* first (lower index = higher priority), then everything else alphabetically.
+        // Exclude purely virtual/tunnel interfaces that won't carry user traffic.
+        let excluded: Set<String> = ["utun", "ipsec", "llw", "anpi", "bridge", "p2p"]
+        let active = seenNames
+            .filter { name in !excluded.contains(where: { name.hasPrefix($0) }) }
+            .sorted { a, b in
+                let aIsEn = a.hasPrefix("en")
+                let bIsEn = b.hasPrefix("en")
+                if aIsEn != bIsEn { return aIsEn }
+                return a < b
+            }
+
+        ptr = ifaddr
         while let current = ptr {
             defer { ptr = current.pointee.ifa_next }
 
             let name = String(cString: current.pointee.ifa_name)
-            guard preferred.contains(name),
+            guard active.contains(name),
                   let addr = current.pointee.ifa_addr else { continue }
 
             let family = addr.pointee.sa_family
@@ -56,5 +81,22 @@ struct IPAddressProvider {
         }
 
         return result
+    }
+
+    // MARK: - Gateway
+
+    private static func defaultGateway() -> String? {
+        guard let store = SCDynamicStoreCreate(nil, "OnlineIndicator" as CFString, nil, nil) else { return nil }
+        guard let dict = SCDynamicStoreCopyValue(store, "State:/Network/Global/IPv4" as CFString) as? [String: Any] else { return nil }
+        return dict["Router"] as? String
+    }
+
+    // MARK: - DNS
+
+    private static func currentDNSServers() -> [String] {
+        guard let store = SCDynamicStoreCreate(nil, "OnlineIndicator" as CFString, nil, nil) else { return [] }
+        guard let dict = SCDynamicStoreCopyValue(store, "State:/Network/Global/DNS" as CFString) as? [String: Any],
+              let servers = dict["ServerAddresses"] as? [String] else { return [] }
+        return servers
     }
 }

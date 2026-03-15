@@ -5,7 +5,7 @@ struct SettingsView: View {
 
     @State private var selectedTab      = 0
     @State private var interval: Double = {
-        let v = UserDefaults.standard.double(forKey: "refreshInterval")
+        let v = UserDefaults.standard.double(for: .refreshInterval)
         return v == 0 ? 60 : v
     }()
     @State private var intervalText     = ""
@@ -14,16 +14,20 @@ struct SettingsView: View {
     @State private var pingURL          = ""
     @State private var pingURLSaved     = false
     @State private var pingURLInvalid   = false
+    @State private var showKnownNetworks = true
     @State private var isLaunchEnabled  = false
+    @State private var loginItemError: String?
 
     enum UpdateStatus: Equatable {
         case idle, checking
-        case available(tag: String)
+        case available(tag: String, notes: String?)
         case upToDate
         case error(String)
     }
     @State private var updateStatus: UpdateStatus = .idle
     @State private var cachedUpdateURL: URL?
+    @State private var showChangelog = false
+    @State private var lastCheckDate: Date? = UserDefaults.standard.object(for: .lastUpdateCheck) as? Date
 
     @State private var connectedSlot     = IconPreferences.slot(for: .connected)
     @State private var blockedSlot       = IconPreferences.slot(for: .blocked)
@@ -175,16 +179,31 @@ struct SettingsView: View {
         .onAppear {
             isLaunchEnabled = LoginItemManager.shared.isEnabled()
             intervalText    = formatInterval(interval)
-            pingURL         = UserDefaults.standard.string(forKey: "pingURL") ?? ""
+            pingURL         = UserDefaults.standard.string(for: .pingURL) ?? ""
+            showKnownNetworks = UserDefaults.standard.bool(for: .showKnownNetworks, default: true)
             connectedSlot   = IconPreferences.slot(for: .connected)
             blockedSlot     = IconPreferences.slot(for: .blocked)
             noNetworkSlot   = IconPreferences.slot(for: .noNetwork)
+
+            if updateStatus == .idle, let cached = UpdateChecker.cachedResult {
+                applyUpdateResult(cached, autoDismiss: false)
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .settingsWindowDidBecomeKey)) { _ in
             isLaunchEnabled = LoginItemManager.shared.isEnabled()
             connectedSlot   = IconPreferences.slot(for: .connected)
             blockedSlot     = IconPreferences.slot(for: .blocked)
             noNetworkSlot   = IconPreferences.slot(for: .noNetwork)
+        }
+        .alert("Launch at Login Failed", isPresented: Binding(
+            get: { loginItemError != nil },
+            set: { if !$0 { loginItemError = nil } }
+        )) {
+            Button("OK", role: .cancel) { loginItemError = nil }
+        } message: {
+            if let msg = loginItemError {
+                Text(msg)
+            }
         }
     }
 
@@ -199,22 +218,42 @@ struct SettingsView: View {
                         icon: "arrow.clockwise.circle.fill",
                         iconColor: .red,
                         title: "Launch at Login",
-                        subtitle: "Opens automatically when your Mac starts up"
+                        subtitle: "Opens automatically when your Mac starts up",
+                        onTap: { isLaunchEnabled.toggle() }
                     ) {
                         Toggle("", isOn: $isLaunchEnabled)
                             .labelsHidden()
                             .onChange(of: isLaunchEnabled) { _, newValue in
-                                LoginItemManager.shared.setEnabled(newValue)
+                                if let error = LoginItemManager.shared.setEnabled(newValue) {
+                                    isLaunchEnabled = !newValue
+                                    loginItemError = error.localizedDescription
+                                }
                             }
                     }
 
+                    Divider().padding(.leading, 56)
+                    
+                    SettingsRow(
+                        icon: "wifi",
+                        iconColor: .teal,
+                        title: "Show Known Networks",
+                        subtitle: "Display nearby saved Wi-Fi networks in the menu",
+                        onTap: { showKnownNetworks.toggle() }
+                    ) {
+                        Toggle("", isOn: $showKnownNetworks)
+                            .labelsHidden()
+                            .onChange(of: showKnownNetworks) { _, newValue in
+                                UserDefaults.standard.set(newValue, for: .showKnownNetworks)
+                            }
+                    }
+                    
                     Divider().padding(.leading, 56)
 
                     SettingsRow(
                         icon: "arrow.down.circle.fill",
                         iconColor: .blue,
                         title: "Check for Updates",
-                        subtitle: "Version \(AppInfo.marketingVersion) (Build \(AppInfo.buildVersion))"
+                        subtitle: updateRowSubtitle
                     ) {
                         
                         HStack(spacing: 8) {
@@ -243,11 +282,25 @@ struct SettingsView: View {
                                 }
                                 .font(.system(size: 12))
                                 .transition(.opacity.combined(with: .scale))
-                            case .available(let tag):
-                                Button("Update to \(tag)") { openLatestRelease() }
-                                    .buttonStyle(.borderedProminent)
-                                    .controlSize(.small)
-                                    .transition(.opacity.combined(with: .scale))
+                            case .available(let tag, let notes):
+                                HStack(spacing: 6) {
+                                    Button("Update to \(tag)") { openLatestRelease() }
+                                        .buttonStyle(.borderedProminent)
+                                        .controlSize(.small)
+                                    if notes != nil {
+                                        Button {
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                showChangelog.toggle()
+                                            }
+                                        } label: {
+                                            Image(systemName: showChangelog ? "chevron.up" : "chevron.down")
+                                                .font(.system(size: 10, weight: .semibold))
+                                        }
+                                        .buttonStyle(.bordered)
+                                        .controlSize(.small)
+                                    }
+                                }
+                                .transition(.opacity.combined(with: .scale))
                             case .error(let msg):
                                 HStack(spacing: 4) {
                                     Image(systemName: "exclamationmark.circle.fill")
@@ -261,6 +314,22 @@ struct SettingsView: View {
                             }
                         }
                         .animation(.easeInOut(duration: 0.2), value: updateStatus)
+                    }
+
+                    if case .available(_, let notes) = updateStatus, let notes, showChangelog {
+                        ScrollView {
+                            Text(notes)
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(10)
+                        }
+                        .frame(maxHeight: 120)
+                        .background(Color(.textBackgroundColor).opacity(0.5))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.08)))
+                        .padding(.top, 4)
+                        .transition(.move(edge: .top).combined(with: .opacity))
                     }
                 }
 
@@ -312,7 +381,7 @@ struct SettingsView: View {
                             HStack(spacing: 4) {
                                 Image(systemName: "exclamationmark.triangle.fill")
                                     .font(.system(size: 9))
-                                Text("Minimum interval is 1 second")
+                                Text("Minimum interval is 30 seconds")
                                     .font(.system(size: 10))
                             }
                             .foregroundStyle(.red)
@@ -621,15 +690,15 @@ struct SettingsView: View {
     private func applyInterval() {
         let value = Double(intervalText) ?? 0
 
-        // Enforce minimum of 1 second
-        guard value >= 1 else {
+        // Enforce minimum of 30 seconds
+        guard value >= 30 else {
             withAnimation { intervalInvalid = true }
             return
         }
 
         intervalInvalid = false
         interval        = value
-        UserDefaults.standard.set(value, forKey: "refreshInterval")
+        UserDefaults.standard.set(value, for: .refreshInterval)
         AppState.shared.restart()
 
         withAnimation { intervalSaved = true }
@@ -654,9 +723,9 @@ struct SettingsView: View {
 
         pingURLInvalid = false
         if trimmed.isEmpty {
-            UserDefaults.standard.removeObject(forKey: "pingURL")
+            UserDefaults.standard.removeObject(for: .pingURL)
         } else {
-            UserDefaults.standard.set(trimmed, forKey: "pingURL")
+            UserDefaults.standard.set(trimmed, for: .pingURL)
         }
 
         withAnimation { pingURLSaved = true }
@@ -666,7 +735,7 @@ struct SettingsView: View {
     }
 
     private func restoreDefaultPingURL() {
-        UserDefaults.standard.removeObject(forKey: "pingURL")
+        UserDefaults.standard.removeObject(for: .pingURL)
         withAnimation { pingURL = "" }
 
         withAnimation { pingURLSaved = true }
@@ -700,24 +769,58 @@ struct SettingsView: View {
         }
     }
 
+    private var updateRowSubtitle: String {
+        let version = "Version \(AppInfo.marketingVersion) (Build \(AppInfo.buildVersion))"
+        guard let date = lastCheckDate else { return version }
+        return "\(version)\n\(formattedCheckDate(date))"
+    }
+
+    private func formattedCheckDate(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "h:mm a"
+        let timeString = timeFormatter.string(from: date)
+
+        if calendar.isDateInToday(date) {
+            return "Checked today at \(timeString)"
+        } else if calendar.isDateInYesterday(date) {
+            return "Checked yesterday at \(timeString)"
+        } else {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "MMM d"
+            return "Checked \(dateFormatter.string(from: date))"
+        }
+    }
+
     private func checkForUpdates() {
         withAnimation { updateStatus = .checking }
         UpdateChecker.check { result in
+            let now = Date()
+            UserDefaults.standard.set(now, for: .lastUpdateCheck)
+            lastCheckDate = now
             withAnimation {
-                switch result {
-                case .upToDate:
-                    updateStatus = .upToDate
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
-                        withAnimation { updateStatus = .idle }
-                    }
-                case .updateAvailable(let tag, _, let downloadURL, let pageURL):
-                    cachedUpdateURL = downloadURL ?? pageURL
-                    updateStatus = .available(tag: tag)
-                case .error(let msg):
-                    updateStatus = .error(msg)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
-                        withAnimation { updateStatus = .idle }
-                    }
+                applyUpdateResult(result, autoDismiss: true)
+            }
+        }
+    }
+
+    private func applyUpdateResult(_ result: UpdateChecker.UpdateResult, autoDismiss: Bool) {
+        switch result {
+        case .upToDate:
+            updateStatus = .upToDate
+            if autoDismiss {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                    withAnimation { updateStatus = .idle }
+                }
+            }
+        case .updateAvailable(let tag, let notes, let downloadURL, let pageURL):
+            cachedUpdateURL = downloadURL ?? pageURL
+            updateStatus = .available(tag: tag, notes: notes)
+        case .error(let msg):
+            updateStatus = .error(msg)
+            if autoDismiss {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                    withAnimation { updateStatus = .idle }
                 }
             }
         }
@@ -930,7 +1033,10 @@ private struct SettingsRow<Control: View>: View {
     let iconColor: Color
     let title: String
     let subtitle: String
+    var onTap: (() -> Void)? = nil
     @ViewBuilder let control: Control
+
+    @State private var isHovered = false
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
@@ -957,5 +1063,13 @@ private struct SettingsRow<Control: View>: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
+        .background(onTap != nil && isHovered ? Color.primary.opacity(0.04) : Color.clear)
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            if onTap != nil { isHovered = hovering }
+        }
+        .onTapGesture {
+            onTap?()
+        }
     }
 }

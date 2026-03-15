@@ -8,15 +8,19 @@ class LoginItemManager {
         SMAppService.mainApp.status == .enabled
     }
 
-    func setEnabled(_ enabled: Bool) {
+    /// Registers or unregisters the app as a login item.
+    /// - Returns: The error if the operation failed, or `nil` on success.
+    @discardableResult
+    func setEnabled(_ enabled: Bool) -> Error? {
         do {
             if enabled {
                 try SMAppService.mainApp.register()
             } else {
                 try SMAppService.mainApp.unregister()
             }
+            return nil
         } catch {
-            print("Launch at login error:", error)
+            return error
         }
     }
 }
