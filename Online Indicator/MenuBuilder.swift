@@ -197,9 +197,12 @@ final class MenuBuilder: NSObject {
                 let lockImage  = NSImage(systemSymbolName: "lock.fill", accessibilityDescription: "Secured")?
                     .withSymbolConfiguration(lockConfig)
                 lockImage?.isTemplate = true  // renders in the current text color, turns white on selection
-                let lockAttachment        = NSTextAttachment()
-                lockAttachment.image      = lockImage
-                lockAttachment.bounds     = CGRect(x: 0, y: -1, width: 10, height: 12)
+                let lockAttachment = NSTextAttachment()
+                lockAttachment.image = lockImage
+                // Center the icon to the font's cap height so it sits level with the text.
+                let lockH: CGFloat = 10
+                let lockY = ((nameFont.capHeight - lockH) / 2).rounded(.towardZero)
+                lockAttachment.bounds = CGRect(x: 0, y: lockY, width: lockH, height: lockH)
                 let lockStr = NSMutableAttributedString(attachment: lockAttachment)
                 lockStr.addAttribute(.paragraphStyle, value: paraStyle,
                                      range: NSRange(location: 0, length: lockStr.length))
