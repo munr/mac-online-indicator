@@ -34,9 +34,7 @@ final class WindowCoordinator: NSObject, NSWindowDelegate {
 
     func openSettings() {
         if let existing = settingsWindow {
-            existing.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            NotificationCenter.default.post(name: .settingsWindowDidBecomeKey, object: nil)
+            bringSettingsWindowToFront(existing)
             return
         }
 
@@ -48,8 +46,7 @@ final class WindowCoordinator: NSObject, NSWindowDelegate {
         window.contentView = NSHostingView(rootView: SettingsView())
         window.delegate = self
         settingsWindow = window
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        bringSettingsWindowToFront(window)
     }
 
     // MARK: - NSWindowDelegate
@@ -72,5 +69,15 @@ final class WindowCoordinator: NSObject, NSWindowDelegate {
         window.center()
         window.isReleasedWhenClosed = false
         return window
+    }
+
+    private func bringSettingsWindowToFront(_ window: NSWindow) {
+        NSRunningApplication.current.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+        NSApp.activate(ignoringOtherApps: true)
+        window.orderFrontRegardless()
+        window.makeMain()
+        window.makeKey()
+        window.makeKeyAndOrderFront(nil)
+        NotificationCenter.default.post(name: .settingsWindowDidBecomeKey, object: nil)
     }
 }
