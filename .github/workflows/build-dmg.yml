@@ -16,6 +16,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set Version from Tag
+        run: echo "APP_VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+
       - name: Build Archive
         run: |
           xcodebuild archive \
@@ -25,7 +28,8 @@ jobs:
             -archivePath "${{ github.workspace }}/build/OnlineIndicator.xcarchive" \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGN_STYLE=Manual \
-            PROVISIONING_PROFILE_SPECIFIER=""
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            MARKETING_VERSION=${{ env.APP_VERSION }}
 
       - name: Extract App from Archive
         run: |
