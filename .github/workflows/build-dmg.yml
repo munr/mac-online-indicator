@@ -34,7 +34,7 @@ jobs:
           <plist version="1.0">
           <dict>
             <key>method</key>
-            <string>copy-only</string>
+            <string>mac-application</string>
           </dict>
           </plist>
           EOF
