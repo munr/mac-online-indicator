@@ -19,7 +19,7 @@ class AppState {
     var statusUpdateHandler: ((ConnectionStatus) -> Void)?
 
     var refreshInterval: TimeInterval {
-        let saved = UserDefaults.standard.double(forKey: "refreshInterval")
+        let saved = UserDefaults.standard.double(for: .refreshInterval)
         return saved == 0 ? 30 : saved
     }
 

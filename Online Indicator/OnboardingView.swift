@@ -84,7 +84,7 @@ struct OnboardingView: View {
                     Spacer()
 
                     HStack(spacing: 0) {
-                        Button { interval = max(10, interval - 10) } label: {
+                        Button { interval = max(30, interval - 10) } label: {
                             Image(systemName: "minus")
                                 .font(.system(size: 11, weight: .semibold))
                                 .frame(width: 28, height: 26)
@@ -151,7 +151,7 @@ struct OnboardingView: View {
 
             // MARK: CTA
             Button {
-                UserDefaults.standard.set(interval, forKey: "refreshInterval")
+                UserDefaults.standard.set(interval, for: .refreshInterval)
                 onStart()
                 NSApp.keyWindow?.close()
             } label: {

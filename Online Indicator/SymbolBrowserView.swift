@@ -131,7 +131,6 @@ struct UserIconSet: Codable, Identifiable {
 
 final class UserIconSetsStore: ObservableObject {
     @Published var sets: [UserIconSet] = []
-    private let defaultsKey = "userIconSets_v1"
 
     init() { load() }
 
@@ -146,7 +145,16 @@ final class UserIconSetsStore: ObservableObject {
     }
 
     private func load() {
-        guard let data = UserDefaults.standard.data(forKey: defaultsKey),
+        // Migrate from legacy UserDefaults key if present
+        if let legacyData = UserDefaults.standard.data(for: .userIconSets),
+           let decoded = try? JSONDecoder().decode([UserIconSet].self, from: legacyData) {
+            sets = decoded
+            persist()
+            UserDefaults.standard.removeObject(for: .userIconSets)
+            return
+        }
+
+        guard let data = try? Data(contentsOf: Self.storageURL),
               let decoded = try? JSONDecoder().decode([UserIconSet].self, from: data)
         else { return }
         sets = decoded
@@ -154,7 +162,14 @@ final class UserIconSetsStore: ObservableObject {
 
     private func persist() {
         guard let data = try? JSONEncoder().encode(sets) else { return }
-        UserDefaults.standard.set(data, forKey: defaultsKey)
+        try? data.write(to: Self.storageURL, options: .atomic)
+    }
+
+    private static var storageURL: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let dir = appSupport.appendingPathComponent("Online Indicator", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("icon-sets.json")
     }
 }
 

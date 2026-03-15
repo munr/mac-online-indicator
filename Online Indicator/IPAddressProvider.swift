@@ -11,7 +11,8 @@ struct IPAddressProvider {
     }
 
     /// Reads the current IPv4, IPv6, and Wi-Fi network name from the active primary network interface.
-    /// Prefers en0 (Wi-Fi) then en1/en2 (Ethernet). Strips the scope-ID suffix from IPv6.
+    /// Prefers `en*` interfaces (Wi-Fi / Ethernet), then falls back to any other active non-loopback
+    /// interface (e.g. Thunderbolt Ethernet, USB adapters). Strips the scope-ID suffix from IPv6.
     static func current() -> Addresses {
         var result = Addresses()
         result.wifiName = CWWiFiClient.shared().interface()?.ssid()
@@ -20,15 +21,34 @@ struct IPAddressProvider {
         guard getifaddrs(&ifaddr) == 0 else { return result }
         defer { freeifaddrs(ifaddr) }
 
-        // Priority order for interface names
-        let preferred = ["en0", "en1", "en2", "en3"]
-
+        // Collect all active, non-loopback interface names in encounter order.
+        var seenNames: [String] = []
         var ptr = ifaddr
+        while let current = ptr {
+            defer { ptr = current.pointee.ifa_next }
+            let name = String(cString: current.pointee.ifa_name)
+            guard !name.hasPrefix("lo"), !seenNames.contains(name) else { continue }
+            seenNames.append(name)
+        }
+
+        // Sort: en* first (lower index = higher priority), then everything else alphabetically.
+        // Exclude purely virtual/tunnel interfaces that won't carry user traffic.
+        let excluded: Set<String> = ["utun", "ipsec", "llw", "anpi", "bridge", "p2p"]
+        let active = seenNames
+            .filter { name in !excluded.contains(where: { name.hasPrefix($0) }) }
+            .sorted { a, b in
+                let aIsEn = a.hasPrefix("en")
+                let bIsEn = b.hasPrefix("en")
+                if aIsEn != bIsEn { return aIsEn }
+                return a < b
+            }
+
+        ptr = ifaddr
         while let current = ptr {
             defer { ptr = current.pointee.ifa_next }
 
             let name = String(cString: current.pointee.ifa_name)
-            guard preferred.contains(name),
+            guard active.contains(name),
                   let addr = current.pointee.ifa_addr else { continue }
 
             let family = addr.pointee.sa_family
