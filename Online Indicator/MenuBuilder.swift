@@ -9,12 +9,16 @@ final class MenuBuilder: NSObject {
 
     private(set) var menu: NSMenu!
 
-    private var wifiMenuItem: NSMenuItem?
-    private var ipv4MenuItem: NSMenuItem?
-    private var ipv6MenuItem: NSMenuItem?
+    private var wifiMenuItem:    NSMenuItem?
+    private var ipv4MenuItem:    NSMenuItem?
+    private var ipv6MenuItem:    NSMenuItem?
+    private var gatewayMenuItem: NSMenuItem?
+    private var dnsMenuItem:     NSMenuItem?
 
-    private(set) var lastIPv4: String?
-    private(set) var lastIPv6: String?
+    private(set) var lastIPv4:       String?
+    private(set) var lastIPv6:       String?
+    private(set) var lastGateway:    String?
+    private(set) var lastDNSServers: [String] = []
 
     private let knownNetworksTag = 900
     
@@ -24,8 +28,10 @@ final class MenuBuilder: NSObject {
 
     // MARK: - Callbacks (set by AppDelegate after init)
 
-    var onCopyIPv4: ((String) -> Void)?
-    var onCopyIPv6: ((String) -> Void)?
+    var onCopyIPv4:    ((String) -> Void)?
+    var onCopyIPv6:    ((String) -> Void)?
+    var onCopyGateway: ((String) -> Void)?
+    var onCopyDNS:     ((String) -> Void)?
     var onOpenSettings: (() -> Void)?
     var onQuit: (() -> Void)?
 
@@ -67,6 +73,22 @@ final class MenuBuilder: NSObject {
 
         m.addItem(.separator())
 
+        let gatewayItem = NSMenuItem(title: "", action: #selector(copyGateway), keyEquivalent: "")
+        gatewayItem.target          = self
+        gatewayItem.toolTip         = "Click to copy"
+        gatewayItem.attributedTitle = ipAttributedString(label: "GW  ", value: "Loading…", available: false)
+        gatewayMenuItem = gatewayItem
+        m.addItem(gatewayItem)
+
+        let dnsItem = NSMenuItem(title: "", action: #selector(copyDNS), keyEquivalent: "")
+        dnsItem.target          = self
+        dnsItem.toolTip         = "Click to copy"
+        dnsItem.attributedTitle = ipAttributedString(label: "DNS ", value: "Loading…", available: false)
+        dnsMenuItem = dnsItem
+        m.addItem(dnsItem)
+
+        m.addItem(.separator())
+
         // Known Networks items are inserted dynamically here on each menu open.
         // A tagged separator marks the insertion anchor.
         let anchor = NSMenuItem.separator()
@@ -92,8 +114,10 @@ final class MenuBuilder: NSObject {
     // MARK: - Dynamic Address Update
 
     func updateAddresses(_ addresses: IPAddressProvider.Addresses) {
-        lastIPv4 = addresses.ipv4
-        lastIPv6 = addresses.ipv6
+        lastIPv4       = addresses.ipv4
+        lastIPv6       = addresses.ipv6
+        lastGateway    = addresses.gateway
+        lastDNSServers = addresses.dnsServers
 
         wifiMenuItem?.attributedTitle = ipAttributedString(
             label: "WiFi",
@@ -109,6 +133,17 @@ final class MenuBuilder: NSObject {
             label: "IPv6",
             value: addresses.ipv6 ?? "Unavailable",
             available: addresses.ipv6 != nil
+        )
+        gatewayMenuItem?.attributedTitle = ipAttributedString(
+            label: "GW  ",
+            value: addresses.gateway ?? "Unavailable",
+            available: addresses.gateway != nil
+        )
+        let dnsValue = addresses.dnsServers.isEmpty ? "Unavailable" : addresses.dnsServers.joined(separator: ", ")
+        dnsMenuItem?.attributedTitle = ipAttributedString(
+            label: "DNS ",
+            value: dnsValue,
+            available: !addresses.dnsServers.isEmpty
         )
 
         refreshKnownNetworks(currentSSID: addresses.wifiName)
@@ -239,6 +274,21 @@ final class MenuBuilder: NSObject {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(ip, forType: .string)
         onCopyIPv6?(ip)
+    }
+
+    @objc private func copyGateway() {
+        guard let gw = lastGateway else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(gw, forType: .string)
+        onCopyGateway?(gw)
+    }
+
+    @objc private func copyDNS() {
+        guard !lastDNSServers.isEmpty else { return }
+        let value = lastDNSServers.joined(separator: "\n")
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(value, forType: .string)
+        onCopyDNS?(value)
     }
 
     @objc private func handleSettings() { onOpenSettings?() }
