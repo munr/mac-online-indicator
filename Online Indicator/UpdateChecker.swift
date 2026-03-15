@@ -3,7 +3,7 @@ import AppKit
 
 class UpdateChecker {
 
-    static let repoOwner = "bornexplorer"
+    static let repoOwner = "munr"
     static let repoName  = "OnlineIndicator"
 
     private static var apiURL: URL? {
