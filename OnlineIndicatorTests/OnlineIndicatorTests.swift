@@ -45,10 +45,19 @@ final class UpdateCheckerVersionTests: XCTestCase {
         XCTAssertTrue(isNewer(stripped, than: "1.0.0"))
     }
 
-    // Helper that mirrors UpdateChecker.isNewer(_:than:) without requiring @testable.
+    func testRegressionOlderVersionIsNotNewer() {
+        XCTAssertFalse(isNewer("v1.1.5", than: "1.1.6"))
+    }
+
+    func testPreReleaseVersionStillComparesNumerically() {
+        XCTAssertTrue(isNewer("v1.2.0-beta.1", than: "1.1.9"))
+        XCTAssertFalse(isNewer("v1.1.6-rc.1", than: "1.1.6"))
+    }
+
+    // Helper that mirrors UpdateChecker version parsing/comparison behavior.
     private func isNewer(_ remote: String, than local: String) -> Bool {
-        let r = remote.split(separator: ".").compactMap { Int($0) }
-        let l = local.split(separator:  ".").compactMap { Int($0) }
+        let r = versionComponents(from: remote)
+        let l = versionComponents(from: local)
         for i in 0..<max(r.count, l.count) {
             let rv = i < r.count ? r[i] : 0
             let lv = i < l.count ? l[i] : 0
@@ -56,6 +65,74 @@ final class UpdateCheckerVersionTests: XCTestCase {
             if rv < lv { return false }
         }
         return false
+    }
+
+    private func versionComponents(from version: String) -> [Int] {
+        let pattern = #"\d+"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return []
+        }
+
+        let nsVersion = version as NSString
+        let fullRange = NSRange(location: 0, length: nsVersion.length)
+        return regex.matches(in: version, options: [], range: fullRange).compactMap {
+            Int(nsVersion.substring(with: $0.range))
+        }
+    }
+}
+
+// MARK: - UpdateChecker cached result
+
+final class UpdateCheckerCachedResultTests: XCTestCase {
+
+    override func setUp() {
+        super.setUp()
+        clearUpdateDefaults()
+    }
+
+    override func tearDown() {
+        clearUpdateDefaults()
+        super.tearDown()
+    }
+
+    func testCachedResultClearsWhenTagIsNotNewerThanInstalledVersion() {
+        UserDefaults.standard.set("v0.0.1", for: .lastUpdateTag)
+        UserDefaults.standard.set("https://example.com/release", for: .lastUpdatePage)
+
+        let result = UpdateChecker.cachedResult
+
+        XCTAssertNil(result, "Stale cached updates should be ignored")
+        XCTAssertNil(UserDefaults.standard.string(for: .lastUpdateTag))
+        XCTAssertNil(UserDefaults.standard.string(for: .lastUpdatePage))
+    }
+
+    func testCachedResultRemainsWhenTagIsNewerThanInstalledVersion() {
+        UserDefaults.standard.set("v9999.0.0", for: .lastUpdateTag)
+        UserDefaults.standard.set("https://example.com/release", for: .lastUpdatePage)
+        UserDefaults.standard.set("notes", for: .lastUpdateNotes)
+
+        let result = UpdateChecker.cachedResult
+
+        guard case .updateAvailable(let tag, let notes, _, let pageURL)? = result else {
+            XCTFail("Expected cached update to be returned for a newer tag")
+            return
+        }
+        XCTAssertEqual(tag, "v9999.0.0")
+        XCTAssertEqual(notes, "notes")
+        XCTAssertEqual(pageURL.absoluteString, "https://example.com/release")
+    }
+
+    private func clearUpdateDefaults() {
+        let keys: [UserDefaults.Key] = [
+            .lastUpdateTag,
+            .lastUpdateNotes,
+            .lastUpdateDownload,
+            .lastUpdatePage,
+            .lastUpdateCheck
+        ]
+        for key in keys {
+            UserDefaults.standard.removeObject(for: key)
+        }
     }
 }
 

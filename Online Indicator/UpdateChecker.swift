@@ -16,9 +16,24 @@ class UpdateChecker {
         case error(String)
     }
 
+    private static func versionComponents(from version: String) -> [Int] {
+        // Extract every numeric run so we handle tags like:
+        // "v1.2.3", "1.2.3-beta.1", and "1.2.3 (Build abc123)".
+        let pattern = #"\d+"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return []
+        }
+
+        let nsVersion = version as NSString
+        let fullRange = NSRange(location: 0, length: nsVersion.length)
+        return regex.matches(in: version, options: [], range: fullRange).compactMap {
+            Int(nsVersion.substring(with: $0.range))
+        }
+    }
+
     private static func isNewer(_ remote: String, than local: String) -> Bool {
-        let remoteComponents = remote.split(separator: ".").compactMap { Int($0) }
-        let localComponents  = local.split(separator: ".").compactMap { Int($0) }
+        let remoteComponents = versionComponents(from: remote)
+        let localComponents  = versionComponents(from: local)
         let maxLength = max(remoteComponents.count, localComponents.count)
 
         for i in 0..<maxLength {
@@ -39,6 +54,14 @@ class UpdateChecker {
         guard let tag = UserDefaults.standard.string(for: .lastUpdateTag),
               let pageString = UserDefaults.standard.string(for: .lastUpdatePage),
               let pageURL = URL(string: pageString) else { return nil }
+
+        // If the cached release is not newer than the currently installed app version,
+        // clear stale state and hide the update CTA.
+        guard isNewer(tag, than: AppInfo.marketingVersion) else {
+            persistResult(.upToDate)
+            return nil
+        }
+
         let notes = UserDefaults.standard.string(for: .lastUpdateNotes)
         let downloadURL = UserDefaults.standard.string(for: .lastUpdateDownload).flatMap(URL.init)
         return .updateAvailable(releaseTag: tag, notes: notes, downloadURL: downloadURL, pageURL: pageURL)
