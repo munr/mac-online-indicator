@@ -419,14 +419,14 @@ final class MenuBuilder: NSObject {
         let result = NSMutableAttributedString()
         result.append(NSAttributedString(string: label, attributes: [
             .font:            NSFont.monospacedSystemFont(ofSize: labelFontSize, weight: .semibold),
-            .foregroundColor: NSColor.tertiaryLabelColor
+            .foregroundColor: NSColor.secondaryLabelColor
         ]))
         result.append(NSAttributedString(string: spacer, attributes: [
             .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
         ]))
         result.append(NSAttributedString(string: value, attributes: [
             .font:            NSFont.monospacedSystemFont(ofSize: 13, weight: .medium),
-            .foregroundColor: available ? NSColor.labelColor : NSColor.tertiaryLabelColor
+            .foregroundColor: available ? NSColor.labelColor : NSColor.secondaryLabelColor
         ]))
         return result
     }
