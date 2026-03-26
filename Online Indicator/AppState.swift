@@ -72,8 +72,11 @@ class AppState {
 
     // MARK: - On-demand refresh (e.g. user clicked a speed row)
 
-    func forceRefreshSpeed() {
+    func forceRefreshPing() {
         checkConnection()
+    }
+
+    func forceRefreshSpeed() {
         speedMonitor.runNow()
     }
 

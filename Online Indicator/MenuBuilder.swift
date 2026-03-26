@@ -15,6 +15,8 @@ final class MenuBuilder: NSObject {
     private var gatewayMenuItem:  NSMenuItem?
     private var pingMenuItem:        NSMenuItem?
     private var speedMenuItem:       NSMenuItem?
+    private var pingItemView:        ClickableMenuItemView?
+    private var speedItemView:       ClickableMenuItemView?
 
     private let dnsTag = 800
 
@@ -36,6 +38,7 @@ final class MenuBuilder: NSObject {
     var onCopyIPv6:      ((String) -> Void)?
     var onCopyGateway:   ((String) -> Void)?
     var onCopyDNS:       ((String) -> Void)?
+    var onRefreshPing:   (() -> Void)?
     var onRefreshSpeed:  (() -> Void)?
     var onOpenSettings:  (() -> Void)?
     var onQuit:          (() -> Void)?
@@ -94,17 +97,23 @@ final class MenuBuilder: NSObject {
 
         m.addItem(.separator())
 
-        let pingItem = NSMenuItem(title: "", action: #selector(refreshSpeed), keyEquivalent: "")
-        pingItem.target          = self
-        pingItem.toolTip         = "Click to refresh"
-        pingItem.attributedTitle = ipAttributedString(label: "Ping", value: "—", available: false)
+        let pingView = ClickableMenuItemView(frame: NSRect(x: 0, y: 0, width: 260, height: 22))
+        pingView.setAttributedString(ipAttributedString(label: "PING", value: "—", available: false))
+        pingView.onRefresh = { [weak self] in self?.refreshPing() }
+        pingItemView = pingView
+        let pingItem = NSMenuItem()
+        pingItem.toolTip = "Click to refresh"
+        pingItem.view    = pingView
         pingMenuItem = pingItem
         m.addItem(pingItem)
 
-        let speedItem = NSMenuItem(title: "", action: #selector(refreshSpeed), keyEquivalent: "")
-        speedItem.target          = self
-        speedItem.toolTip         = "Click to refresh"
-        speedItem.attributedTitle = combinedSpeedAttributedString(download: nil, upload: nil, updating: false)
+        let speedView = ClickableMenuItemView(frame: NSRect(x: 0, y: 0, width: 260, height: 22))
+        speedView.setAttributedString(combinedSpeedAttributedString(download: nil, upload: nil, updating: false))
+        speedView.onRefresh = { [weak self] in self?.refreshSpeed() }
+        speedItemView = speedView
+        let speedItem = NSMenuItem()
+        speedItem.toolTip = "Click to refresh"
+        speedItem.view    = speedView
         speedMenuItem = speedItem
         m.addItem(speedItem)
 
@@ -200,8 +209,8 @@ final class MenuBuilder: NSObject {
     // MARK: - Speed Reset
 
     func clearSpeedSnapshot() {
-        pingMenuItem?.attributedTitle  = ipAttributedString(label: "Ping", value: "—", available: false)
-        speedMenuItem?.attributedTitle = combinedSpeedAttributedString(download: nil, upload: nil, updating: false)
+        pingItemView?.setAttributedString(ipAttributedString(label: "PING", value: "—", available: false))
+        speedItemView?.setAttributedString(combinedSpeedAttributedString(download: nil, upload: nil, updating: false))
     }
 
     // MARK: - Speed Measuring State
@@ -211,35 +220,35 @@ final class MenuBuilder: NSObject {
     func setSpeedMeasuring(_ measuring: Bool) {
         isMeasuringSpeed = measuring
         guard measuring else { return }
-        speedMenuItem?.attributedTitle = combinedSpeedAttributedString(download: nil, upload: nil, updating: true)
+        speedItemView?.setAttributedString(combinedSpeedAttributedString(download: nil, upload: nil, updating: true))
     }
 
     // MARK: - Speed Snapshot Update
 
     func updateSpeedSnapshot(_ snapshot: NetworkSpeedMonitor.Snapshot) {
         // Ping is independent — update it immediately whenever it arrives.
-        pingMenuItem?.attributedTitle = ipAttributedString(
-            label: "Ping",
+        pingItemView?.setAttributedString(ipAttributedString(
+            label: "PING",
             value: snapshot.pingMs.map { String(format: "%.0f ms", $0) } ?? "—",
             available: snapshot.pingMs != nil
-        )
+        ))
         // Skip speed row while a test is in flight to keep "Updating…" visible.
         guard !isMeasuringSpeed else { return }
-        speedMenuItem?.attributedTitle = combinedSpeedAttributedString(
+        speedItemView?.setAttributedString(combinedSpeedAttributedString(
             download: snapshot.downloadMbps,
             upload:   snapshot.uploadMbps,
             updating: false
-        )
+        ))
     }
 
     private func combinedSpeedAttributedString(download: Double?, upload: Double?, updating: Bool) -> NSAttributedString {
         if updating {
-            return ipAttributedString(label: "Speed", value: "Updating…", available: false, spacer: "  ")
+            return ipAttributedString(label: "SPEED", value: "Updating…", available: false, spacer: "  ")
         }
         guard let dl = download, let ul = upload else {
-            return ipAttributedString(label: "Speed", value: "—", available: false, spacer: "  ")
+            return ipAttributedString(label: "SPEED", value: "—", available: false, spacer: "  ")
         }
-        return ipAttributedString(label: "Speed", value: "↓ \(formatSpeed(dl))  ↑ \(formatSpeed(ul))", available: true, spacer: "  ")
+        return ipAttributedString(label: "SPEED", value: "↓ \(formatSpeed(dl))  ↑ \(formatSpeed(ul))", available: true, spacer: "  ")
     }
 
     private func formatSpeed(_ mbps: Double) -> String {
@@ -391,9 +400,13 @@ final class MenuBuilder: NSObject {
         onCopyDNS?(value)
     }
 
+    @objc private func refreshPing() {
+        pingItemView?.setAttributedString(ipAttributedString(label: "PING", value: "Updating…", available: false))
+        onRefreshPing?()
+    }
+
     @objc private func refreshSpeed() {
-        pingMenuItem?.attributedTitle  = ipAttributedString(label: "Ping", value: "Updating…", available: false)
-        speedMenuItem?.attributedTitle = combinedSpeedAttributedString(download: nil, upload: nil, updating: true)
+        speedItemView?.setAttributedString(combinedSpeedAttributedString(download: nil, upload: nil, updating: true))
         onRefreshSpeed?()
     }
 
@@ -406,16 +419,71 @@ final class MenuBuilder: NSObject {
         let result = NSMutableAttributedString()
         result.append(NSAttributedString(string: label, attributes: [
             .font:            NSFont.monospacedSystemFont(ofSize: labelFontSize, weight: .semibold),
-            .foregroundColor: NSColor.tertiaryLabelColor
+            .foregroundColor: NSColor.secondaryLabelColor
         ]))
         result.append(NSAttributedString(string: spacer, attributes: [
             .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
         ]))
         result.append(NSAttributedString(string: value, attributes: [
             .font:            NSFont.monospacedSystemFont(ofSize: 13, weight: .medium),
-            .foregroundColor: available ? NSColor.labelColor : NSColor.tertiaryLabelColor
+            .foregroundColor: available ? NSColor.labelColor : NSColor.secondaryLabelColor
         ]))
         return result
+    }
+}
+
+// MARK: - Clickable Menu Item View
+
+/// A menu item view that handles clicks in-place without dismissing the menu.
+/// AppKit only closes the menu when `NSMenu.cancelTracking()` is called or the
+/// user clicks outside; custom views receive events without triggering that.
+final class ClickableMenuItemView: NSView {
+
+    var onRefresh: (() -> Void)?
+
+    private let textField = NSTextField(labelWithString: "")
+    private var trackingArea: NSTrackingArea?
+    private var isHighlighted = false { didSet { needsDisplay = true } }
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        textField.translatesAutoresizingMaskIntoConstraints = false
+        textField.isEditable   = false
+        textField.isBordered   = false
+        textField.drawsBackground = false
+        addSubview(textField)
+        NSLayoutConstraint.activate([
+            textField.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            textField.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    func setAttributedString(_ str: NSAttributedString) {
+        textField.attributedStringValue = str
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let ta = trackingArea { removeTrackingArea(ta) }
+        let ta = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeAlways], owner: self)
+        addTrackingArea(ta)
+        trackingArea = ta
+    }
+
+    override func mouseEntered(with event: NSEvent) { isHighlighted = true }
+    override func mouseExited(with event: NSEvent)  { isHighlighted = false }
+
+    override func mouseDown(with event: NSEvent) {
+        onRefresh?()
+        // Intentionally not calling super — keeps the menu open.
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        if isHighlighted {
+            NSColor.selectedMenuItemColor.setFill()
+            NSBezierPath(roundedRect: bounds.insetBy(dx: 4, dy: 1), xRadius: 4, yRadius: 4).fill()
+        }
     }
 }
 
