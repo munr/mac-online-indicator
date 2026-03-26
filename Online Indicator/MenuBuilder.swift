@@ -98,7 +98,7 @@ final class MenuBuilder: NSObject {
         m.addItem(.separator())
 
         let pingView = ClickableMenuItemView(frame: NSRect(x: 0, y: 0, width: 260, height: 22))
-        pingView.setAttributedString(ipAttributedString(label: "Ping", value: "—", available: false))
+        pingView.setAttributedString(ipAttributedString(label: "PING", value: "—", available: false))
         pingView.onRefresh = { [weak self] in self?.refreshPing() }
         pingItemView = pingView
         let pingItem = NSMenuItem()
@@ -209,7 +209,7 @@ final class MenuBuilder: NSObject {
     // MARK: - Speed Reset
 
     func clearSpeedSnapshot() {
-        pingItemView?.setAttributedString(ipAttributedString(label: "Ping", value: "—", available: false))
+        pingItemView?.setAttributedString(ipAttributedString(label: "PING", value: "—", available: false))
         speedItemView?.setAttributedString(combinedSpeedAttributedString(download: nil, upload: nil, updating: false))
     }
 
@@ -228,7 +228,7 @@ final class MenuBuilder: NSObject {
     func updateSpeedSnapshot(_ snapshot: NetworkSpeedMonitor.Snapshot) {
         // Ping is independent — update it immediately whenever it arrives.
         pingItemView?.setAttributedString(ipAttributedString(
-            label: "Ping",
+            label: "PING",
             value: snapshot.pingMs.map { String(format: "%.0f ms", $0) } ?? "—",
             available: snapshot.pingMs != nil
         ))
@@ -243,12 +243,12 @@ final class MenuBuilder: NSObject {
 
     private func combinedSpeedAttributedString(download: Double?, upload: Double?, updating: Bool) -> NSAttributedString {
         if updating {
-            return ipAttributedString(label: "Speed", value: "Updating…", available: false, spacer: "  ")
+            return ipAttributedString(label: "SPEED", value: "Updating…", available: false, spacer: "  ")
         }
         guard let dl = download, let ul = upload else {
-            return ipAttributedString(label: "Speed", value: "—", available: false, spacer: "  ")
+            return ipAttributedString(label: "SPEED", value: "—", available: false, spacer: "  ")
         }
-        return ipAttributedString(label: "Speed", value: "↓ \(formatSpeed(dl))  ↑ \(formatSpeed(ul))", available: true, spacer: "  ")
+        return ipAttributedString(label: "SPEED", value: "↓ \(formatSpeed(dl))  ↑ \(formatSpeed(ul))", available: true, spacer: "  ")
     }
 
     private func formatSpeed(_ mbps: Double) -> String {
@@ -401,7 +401,7 @@ final class MenuBuilder: NSObject {
     }
 
     @objc private func refreshPing() {
-        pingItemView?.setAttributedString(ipAttributedString(label: "Ping", value: "Updating…", available: false))
+        pingItemView?.setAttributedString(ipAttributedString(label: "PING", value: "Updating…", available: false))
         onRefreshPing?()
     }
 
