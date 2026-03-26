@@ -18,8 +18,9 @@ struct OnlineIndicatorApp: App {
 class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var statusItem: NSStatusItem!
-    private let menuBuilder       = MenuBuilder()
-    private let windowCoordinator = WindowCoordinator()
+    private let menuBuilder        = MenuBuilder()
+    private let windowCoordinator  = WindowCoordinator()
+    private let externalIPFetcher  = ExternalIPFetcher()
 
     private var currentStatus: AppState.ConnectionStatus = .noNetwork
 
@@ -88,7 +89,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menuBuilder.onCopyIPv4     = { [weak self] _ in self?.showCopiedTooltip(text: "IPv4 Copied") }
         menuBuilder.onCopyIPv6     = { [weak self] _ in self?.showCopiedTooltip(text: "IPv6 Copied") }
         menuBuilder.onCopyGateway  = { [weak self] _ in self?.showCopiedTooltip(text: "Gateway Copied") }
-        menuBuilder.onCopyDNS      = { [weak self] _ in self?.showCopiedTooltip(text: "DNS Copied") }
+        menuBuilder.onCopyDNS        = { [weak self] _ in self?.showCopiedTooltip(text: "DNS Copied") }
+        menuBuilder.onCopyExternalIP = { [weak self] _ in self?.showCopiedTooltip(text: "External IP Copied") }
         menuBuilder.onRefreshPing  = { AppState.shared.forceRefreshPing() }
         menuBuilder.onRefreshSpeed = { AppState.shared.forceRefreshSpeed() }
         menuBuilder.onOpenSettings = { [weak self] in self?.windowCoordinator.openSettings() }
@@ -105,6 +107,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         menuBuilder.updateAddresses(IPAddressProvider.current())
+        guard UserDefaults.standard.bool(for: .showExternalIP, default: true) else { return }
+        externalIPFetcher.fetch { [weak self] ip in
+            self?.menuBuilder.updateExternalIP(ip)
+        }
     }
 
     // MARK: - Icon

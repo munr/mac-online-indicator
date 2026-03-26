@@ -13,6 +13,7 @@ final class MenuBuilder: NSObject {
     private var ipv4MenuItem:     NSMenuItem?
     private var ipv6MenuItem:     NSMenuItem?
     private var gatewayMenuItem:  NSMenuItem?
+    private var externalIPMenuItem: NSMenuItem?
     private var pingMenuItem:        NSMenuItem?
     private var speedMenuItem:       NSMenuItem?
     private var pingItemView:        ClickableMenuItemView?
@@ -24,6 +25,7 @@ final class MenuBuilder: NSObject {
     private(set) var lastIPv6:       String?
     private(set) var lastGateway:    String?
     private(set) var lastDNSServers: [String] = []
+    private(set) var lastExternalIP: String?
 
     private let knownNetworksTag = 900
 
@@ -32,12 +34,17 @@ final class MenuBuilder: NSObject {
         UserDefaults.standard.bool(for: .showKnownNetworks, default: true)
     }
 
+    private var shouldShowExternalIP: Bool {
+        UserDefaults.standard.bool(for: .showExternalIP, default: true)
+    }
+
     // MARK: - Callbacks (set by AppDelegate after init)
 
     var onCopyIPv4:      ((String) -> Void)?
     var onCopyIPv6:      ((String) -> Void)?
     var onCopyGateway:   ((String) -> Void)?
     var onCopyDNS:       ((String) -> Void)?
+    var onCopyExternalIP: ((String) -> Void)?
     var onRefreshPing:   (() -> Void)?
     var onRefreshSpeed:  (() -> Void)?
     var onOpenSettings:  (() -> Void)?
@@ -64,6 +71,14 @@ final class MenuBuilder: NSObject {
         wifiItem.attributedTitle = ipAttributedString(label: "WiFi", value: "Loading…", available: false)
         wifiMenuItem = wifiItem
         m.addItem(wifiItem)
+
+        let extIPItem = NSMenuItem(title: "", action: #selector(copyExternalIP), keyEquivalent: "")
+        extIPItem.target          = self
+        extIPItem.toolTip         = "Click to copy"
+        extIPItem.attributedTitle = ipAttributedString(label: "EXT ", value: "Loading…", available: false)
+        extIPItem.isHidden        = !shouldShowExternalIP
+        externalIPMenuItem = extIPItem
+        m.addItem(extIPItem)
 
         let ipv4Item = NSMenuItem(title: "", action: #selector(copyIPv4), keyEquivalent: "")
         ipv4Item.target          = self
@@ -398,6 +413,24 @@ final class MenuBuilder: NSObject {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(value, forType: .string)
         onCopyDNS?(value)
+    }
+
+    @objc private func copyExternalIP() {
+        guard let ip = lastExternalIP else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(ip, forType: .string)
+        onCopyExternalIP?(ip)
+    }
+
+    func updateExternalIP(_ ip: String?) {
+        lastExternalIP = ip
+        externalIPMenuItem?.isHidden = !shouldShowExternalIP
+        guard shouldShowExternalIP else { return }
+        externalIPMenuItem?.attributedTitle = ipAttributedString(
+            label: "EXT ",
+            value: ip ?? "Unavailable",
+            available: ip != nil
+        )
     }
 
     @objc private func refreshPing() {
