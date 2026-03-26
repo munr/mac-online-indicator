@@ -9,10 +9,14 @@ final class MenuBuilder: NSObject {
 
     private(set) var menu: NSMenu!
 
-    private var wifiMenuItem:    NSMenuItem?
-    private var ipv4MenuItem:    NSMenuItem?
-    private var ipv6MenuItem:    NSMenuItem?
-    private var gatewayMenuItem: NSMenuItem?
+    private var wifiMenuItem:     NSMenuItem?
+    private var ipv4MenuItem:     NSMenuItem?
+    private var ipv6MenuItem:     NSMenuItem?
+    private var gatewayMenuItem:  NSMenuItem?
+    private var pingMenuItem:        NSMenuItem?
+    private var downloadMenuItem:    NSMenuItem?
+    private var uploadMenuItem:      NSMenuItem?
+    private var speedUpdatedMenuItem: NSMenuItem?
 
     private let dnsTag = 800
 
@@ -29,12 +33,13 @@ final class MenuBuilder: NSObject {
 
     // MARK: - Callbacks (set by AppDelegate after init)
 
-    var onCopyIPv4:    ((String) -> Void)?
-    var onCopyIPv6:    ((String) -> Void)?
-    var onCopyGateway: ((String) -> Void)?
-    var onCopyDNS:     ((String) -> Void)?
-    var onOpenSettings: (() -> Void)?
-    var onQuit: (() -> Void)?
+    var onCopyIPv4:      ((String) -> Void)?
+    var onCopyIPv6:      ((String) -> Void)?
+    var onCopyGateway:   ((String) -> Void)?
+    var onCopyDNS:       ((String) -> Void)?
+    var onRefreshSpeed:  (() -> Void)?
+    var onOpenSettings:  (() -> Void)?
+    var onQuit:          (() -> Void)?
 
     // MARK: - Build
 
@@ -87,6 +92,34 @@ final class MenuBuilder: NSObject {
         dnsItem.attributedTitle = ipAttributedString(label: "DNS ", value: "Loading…", available: false)
         dnsItem.tag             = dnsTag
         m.addItem(dnsItem)
+
+        m.addItem(.separator())
+
+        let pingItem = NSMenuItem(title: "", action: #selector(refreshSpeed), keyEquivalent: "")
+        pingItem.target          = self
+        pingItem.toolTip         = "Click to refresh"
+        pingItem.attributedTitle = ipAttributedString(label: "Ping", value: "—", available: false)
+        pingMenuItem = pingItem
+        m.addItem(pingItem)
+
+        let dlItem = NSMenuItem(title: "", action: #selector(refreshSpeed), keyEquivalent: "")
+        dlItem.target          = self
+        dlItem.toolTip         = "Click to refresh"
+        dlItem.attributedTitle = ipAttributedString(label: "Down", value: "—", available: false)
+        downloadMenuItem = dlItem
+        m.addItem(dlItem)
+
+        let ulItem = NSMenuItem(title: "", action: #selector(refreshSpeed), keyEquivalent: "")
+        ulItem.target          = self
+        ulItem.toolTip         = "Click to refresh"
+        ulItem.attributedTitle = ipAttributedString(label: "Up  ", value: "—", available: false)
+        uploadMenuItem = ulItem
+        m.addItem(ulItem)
+
+        let updatedItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        updatedItem.isEnabled = false
+        speedUpdatedMenuItem = updatedItem
+        m.addItem(updatedItem)
 
         m.addItem(.separator())
 
@@ -175,6 +208,63 @@ final class MenuBuilder: NSObject {
                 menu.insertItem(item, at: firstIndex + i)
             }
         }
+    }
+
+    // MARK: - Speed Snapshot Update
+
+    func updateSpeedSnapshot(_ snapshot: NetworkSpeedMonitor.Snapshot) {
+        pingMenuItem?.attributedTitle = ipAttributedString(
+            label: "Ping",
+            value: snapshot.pingMs.map { String(format: "%.0f ms", $0) } ?? "—",
+            available: snapshot.pingMs != nil
+        )
+        downloadMenuItem?.attributedTitle = ipAttributedString(
+            label: "Down",
+            value: snapshot.downloadMbps.map { formatSpeed($0) } ?? "—",
+            available: snapshot.downloadMbps != nil
+        )
+        uploadMenuItem?.attributedTitle = ipAttributedString(
+            label: "Up  ",
+            value: snapshot.uploadMbps.map { formatSpeed($0) } ?? "—",
+            available: snapshot.uploadMbps != nil
+        )
+        speedUpdatedMenuItem?.attributedTitle = updatedAttributedString(date: Date())
+    }
+
+    private func updatedAttributedString(date: Date) -> NSAttributedString {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        let timeStr = formatter.string(from: date)
+
+        let calendar = Calendar.current
+        let dateStr: String
+        if calendar.isDateInToday(date) {
+            dateStr = "Today"
+        } else if calendar.isDateInYesterday(date) {
+            dateStr = "Yesterday"
+        } else {
+            let df = DateFormatter()
+            df.dateStyle = .medium
+            df.timeStyle = .none
+            dateStr = df.string(from: date)
+        }
+
+        let para = NSMutableParagraphStyle()
+        para.paragraphSpacingBefore = 4
+
+        return NSAttributedString(string: "Updated \(dateStr) at \(timeStr)", attributes: [
+            .font:            NSFont.systemFont(ofSize: 10),
+            .foregroundColor: NSColor.tertiaryLabelColor,
+            .paragraphStyle:  para
+        ])
+    }
+
+    private func formatSpeed(_ mbps: Double) -> String {
+        if mbps >= 100 { return String(format: "%.0f Mbps", mbps) }
+        if mbps >= 10  { return String(format: "%.1f Mbps", mbps) }
+        if mbps >= 1   { return String(format: "%.2f Mbps", mbps) }
+        return String(format: "%.0f Kbps", mbps * 1000)
     }
 
     // MARK: - Known Networks
@@ -319,6 +409,10 @@ final class MenuBuilder: NSObject {
         onCopyDNS?(value)
     }
 
+    @objc private func refreshSpeed() {
+        onRefreshSpeed?()
+    }
+
     @objc private func handleSettings() { onOpenSettings?() }
     @objc private func handleQuit()     { onQuit?() }
 
@@ -334,7 +428,7 @@ final class MenuBuilder: NSObject {
             .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
         ]))
         result.append(NSAttributedString(string: value, attributes: [
-            .font:            NSFont.monospacedSystemFont(ofSize: 12, weight: .regular),
+            .font:            NSFont.monospacedSystemFont(ofSize: 13, weight: .medium),
             .foregroundColor: available ? NSColor.labelColor : NSColor.tertiaryLabelColor
         ]))
         return result

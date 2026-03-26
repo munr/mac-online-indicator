@@ -6,6 +6,7 @@ class AppState {
 
     private let networkMonitor = NetworkMonitor()
     private let connectivityChecker = ConnectivityChecker()
+    private let speedMonitor = NetworkSpeedMonitor()
 
     private var refreshTimer: Timer?
     private var debounceTimer: Timer?
@@ -17,6 +18,7 @@ class AppState {
     }
 
     var statusUpdateHandler: ((ConnectionStatus) -> Void)?
+    var speedSnapshotHandler: ((NetworkSpeedMonitor.Snapshot) -> Void)?
 
     var refreshInterval: TimeInterval {
         let saved = UserDefaults.standard.double(for: .refreshInterval)
@@ -34,10 +36,23 @@ class AppState {
 
         networkMonitor.startMonitoring()
 
+        let speedInterval = UserDefaults.standard.double(for: .speedTestInterval)
+        speedMonitor.snapshotHandler = { [weak self] snapshot in
+            self?.speedSnapshotHandler?(snapshot)
+        }
+        speedMonitor.start(interval: speedInterval == 0 ? 300 : speedInterval)
+
         startTimer()
 
         // Immediate outbound attempt on startup
         checkConnection()
+    }
+
+    // MARK: - On-demand refresh (e.g. user clicked a speed row)
+
+    func forceRefreshSpeed() {
+        checkConnection()
+        speedMonitor.runNow()
     }
 
     // MARK: - Restart (when settings change)
@@ -45,6 +60,8 @@ class AppState {
     func restart() {
         refreshTimer?.invalidate()
         refreshTimer = nil
+        let speedInterval = UserDefaults.standard.double(for: .speedTestInterval)
+        speedMonitor.start(interval: speedInterval == 0 ? 300 : speedInterval)
         startTimer()
         checkConnection()
     }
@@ -87,10 +104,13 @@ class AppState {
         }
 
         // Attempt outbound request
-        connectivityChecker.checkOutboundConnection { [weak self] reachable in
+        connectivityChecker.checkOutboundConnection { [weak self] reachable, latencyMs in
 
             DispatchQueue.main.async {
                 self?.statusUpdateHandler?(reachable ? .connected : .blocked)
+                if let ms = latencyMs {
+                    self?.speedMonitor.updatePing(ms)
+                }
             }
         }
     }
