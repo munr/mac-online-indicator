@@ -9,11 +9,14 @@ final class MenuBuilder: NSObject {
 
     private(set) var menu: NSMenu!
 
-    private var wifiMenuItem:    NSMenuItem?
-    private var ipv4MenuItem:    NSMenuItem?
-    private var ipv6MenuItem:    NSMenuItem?
-    private var gatewayMenuItem: NSMenuItem?
-    private var dnsMenuItem:     NSMenuItem?
+    private var wifiMenuItem:     NSMenuItem?
+    private var ipv4MenuItem:     NSMenuItem?
+    private var ipv6MenuItem:     NSMenuItem?
+    private var gatewayMenuItem:  NSMenuItem?
+    private var pingMenuItem:        NSMenuItem?
+    private var speedMenuItem:       NSMenuItem?
+
+    private let dnsTag = 800
 
     private(set) var lastIPv4:       String?
     private(set) var lastIPv6:       String?
@@ -21,6 +24,7 @@ final class MenuBuilder: NSObject {
     private(set) var lastDNSServers: [String] = []
 
     private let knownNetworksTag = 900
+
     
     private var shouldShowKnownNetworks: Bool {
         UserDefaults.standard.bool(for: .showKnownNetworks, default: true)
@@ -28,12 +32,13 @@ final class MenuBuilder: NSObject {
 
     // MARK: - Callbacks (set by AppDelegate after init)
 
-    var onCopyIPv4:    ((String) -> Void)?
-    var onCopyIPv6:    ((String) -> Void)?
-    var onCopyGateway: ((String) -> Void)?
-    var onCopyDNS:     ((String) -> Void)?
-    var onOpenSettings: (() -> Void)?
-    var onQuit: (() -> Void)?
+    var onCopyIPv4:      ((String) -> Void)?
+    var onCopyIPv6:      ((String) -> Void)?
+    var onCopyGateway:   ((String) -> Void)?
+    var onCopyDNS:       ((String) -> Void)?
+    var onRefreshSpeed:  (() -> Void)?
+    var onOpenSettings:  (() -> Void)?
+    var onQuit:          (() -> Void)?
 
     // MARK: - Build
 
@@ -84,8 +89,24 @@ final class MenuBuilder: NSObject {
         dnsItem.target          = self
         dnsItem.toolTip         = "Click to copy"
         dnsItem.attributedTitle = ipAttributedString(label: "DNS ", value: "Loading…", available: false)
-        dnsMenuItem = dnsItem
+        dnsItem.tag             = dnsTag
         m.addItem(dnsItem)
+
+        m.addItem(.separator())
+
+        let pingItem = NSMenuItem(title: "", action: #selector(refreshSpeed), keyEquivalent: "")
+        pingItem.target          = self
+        pingItem.toolTip         = "Click to refresh"
+        pingItem.attributedTitle = ipAttributedString(label: "Ping", value: "—", available: false)
+        pingMenuItem = pingItem
+        m.addItem(pingItem)
+
+        let speedItem = NSMenuItem(title: "", action: #selector(refreshSpeed), keyEquivalent: "")
+        speedItem.target          = self
+        speedItem.toolTip         = "Click to refresh"
+        speedItem.attributedTitle = combinedSpeedAttributedString(download: nil, upload: nil, updating: false)
+        speedMenuItem = speedItem
+        m.addItem(speedItem)
 
         m.addItem(.separator())
 
@@ -139,14 +160,93 @@ final class MenuBuilder: NSObject {
             value: addresses.gateway ?? "Unavailable",
             available: addresses.gateway != nil
         )
-        let dnsValue = addresses.dnsServers.isEmpty ? "Unavailable" : addresses.dnsServers.joined(separator: ", ")
-        dnsMenuItem?.attributedTitle = ipAttributedString(
-            label: "DNS ",
-            value: dnsValue,
-            available: !addresses.dnsServers.isEmpty
-        )
+        refreshDNSItems(servers: addresses.dnsServers)
 
         refreshKnownNetworks(currentSSID: addresses.wifiName)
+    }
+
+    private func refreshDNSItems(servers: [String]) {
+        guard let menu else { return }
+
+        // Find the index of the first existing DNS item
+        guard let firstIndex = menu.items.firstIndex(where: { $0.tag == dnsTag }) else { return }
+
+        // Remove all current DNS items
+        while let old = menu.items.first(where: { $0.tag == dnsTag }) {
+            menu.removeItem(old)
+        }
+
+        // Insert one item per server (or a single "Unavailable" item)
+        if servers.isEmpty {
+            let item = NSMenuItem(title: "", action: #selector(copyDNS), keyEquivalent: "")
+            item.target          = self
+            item.toolTip         = "Click to copy"
+            item.attributedTitle = ipAttributedString(label: "DNS ", value: "Unavailable", available: false)
+            item.tag             = dnsTag
+            menu.insertItem(item, at: firstIndex)
+        } else {
+            for (i, server) in servers.enumerated() {
+                let label = i == 0 ? "DNS " : "    "
+                let item = NSMenuItem(title: "", action: #selector(copyDNS), keyEquivalent: "")
+                item.target          = self
+                item.toolTip         = "Click to copy"
+                item.attributedTitle = ipAttributedString(label: label, value: server, available: true)
+                item.tag             = dnsTag
+                menu.insertItem(item, at: firstIndex + i)
+            }
+        }
+    }
+
+    // MARK: - Speed Reset
+
+    func clearSpeedSnapshot() {
+        pingMenuItem?.attributedTitle  = ipAttributedString(label: "Ping", value: "—", available: false)
+        speedMenuItem?.attributedTitle = combinedSpeedAttributedString(download: nil, upload: nil, updating: false)
+    }
+
+    // MARK: - Speed Measuring State
+
+    private var isMeasuringSpeed = false
+
+    func setSpeedMeasuring(_ measuring: Bool) {
+        isMeasuringSpeed = measuring
+        guard measuring else { return }
+        speedMenuItem?.attributedTitle = combinedSpeedAttributedString(download: nil, upload: nil, updating: true)
+    }
+
+    // MARK: - Speed Snapshot Update
+
+    func updateSpeedSnapshot(_ snapshot: NetworkSpeedMonitor.Snapshot) {
+        // Ping is independent — update it immediately whenever it arrives.
+        pingMenuItem?.attributedTitle = ipAttributedString(
+            label: "Ping",
+            value: snapshot.pingMs.map { String(format: "%.0f ms", $0) } ?? "—",
+            available: snapshot.pingMs != nil
+        )
+        // Skip speed row while a test is in flight to keep "Updating…" visible.
+        guard !isMeasuringSpeed else { return }
+        speedMenuItem?.attributedTitle = combinedSpeedAttributedString(
+            download: snapshot.downloadMbps,
+            upload:   snapshot.uploadMbps,
+            updating: false
+        )
+    }
+
+    private func combinedSpeedAttributedString(download: Double?, upload: Double?, updating: Bool) -> NSAttributedString {
+        if updating {
+            return ipAttributedString(label: "Speed", value: "Updating…", available: false, spacer: "  ")
+        }
+        guard let dl = download, let ul = upload else {
+            return ipAttributedString(label: "Speed", value: "—", available: false, spacer: "  ")
+        }
+        return ipAttributedString(label: "Speed", value: "↓ \(formatSpeed(dl))  ↑ \(formatSpeed(ul))", available: true, spacer: "  ")
+    }
+
+    private func formatSpeed(_ mbps: Double) -> String {
+        if mbps >= 100 { return String(format: "%.0f Mbps", mbps) }
+        if mbps >= 10  { return String(format: "%.1f Mbps", mbps) }
+        if mbps >= 1   { return String(format: "%.2f Mbps", mbps) }
+        return String(format: "%.0f Kbps", mbps * 1000)
     }
 
     // MARK: - Known Networks
@@ -291,22 +391,28 @@ final class MenuBuilder: NSObject {
         onCopyDNS?(value)
     }
 
+    @objc private func refreshSpeed() {
+        pingMenuItem?.attributedTitle  = ipAttributedString(label: "Ping", value: "Updating…", available: false)
+        speedMenuItem?.attributedTitle = combinedSpeedAttributedString(download: nil, upload: nil, updating: true)
+        onRefreshSpeed?()
+    }
+
     @objc private func handleSettings() { onOpenSettings?() }
     @objc private func handleQuit()     { onQuit?() }
 
     // MARK: - IP attributed string
 
-    private func ipAttributedString(label: String, value: String, available: Bool) -> NSAttributedString {
+    private func ipAttributedString(label: String, value: String, available: Bool, labelFontSize: CGFloat = 11, spacer: String = "   ") -> NSAttributedString {
         let result = NSMutableAttributedString()
         result.append(NSAttributedString(string: label, attributes: [
-            .font:            NSFont.monospacedSystemFont(ofSize: 11, weight: .semibold),
+            .font:            NSFont.monospacedSystemFont(ofSize: labelFontSize, weight: .semibold),
             .foregroundColor: NSColor.tertiaryLabelColor
         ]))
-        result.append(NSAttributedString(string: "   ", attributes: [
+        result.append(NSAttributedString(string: spacer, attributes: [
             .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
         ]))
         result.append(NSAttributedString(string: value, attributes: [
-            .font:            NSFont.monospacedSystemFont(ofSize: 12, weight: .regular),
+            .font:            NSFont.monospacedSystemFont(ofSize: 13, weight: .medium),
             .foregroundColor: available ? NSColor.labelColor : NSColor.tertiaryLabelColor
         ]))
         return result

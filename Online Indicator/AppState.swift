@@ -6,9 +6,11 @@ class AppState {
 
     private let networkMonitor = NetworkMonitor()
     private let connectivityChecker = ConnectivityChecker()
+    private let speedMonitor = NetworkSpeedMonitor()
 
     private var refreshTimer: Timer?
     private var debounceTimer: Timer?
+    private var lastWifiSSID: String?
 
     enum ConnectionStatus {
         case connected
@@ -17,6 +19,9 @@ class AppState {
     }
 
     var statusUpdateHandler: ((ConnectionStatus) -> Void)?
+    var speedSnapshotHandler: ((NetworkSpeedMonitor.Snapshot) -> Void)?
+    var speedMeasuringChangedHandler: ((Bool) -> Void)?
+    var speedResetHandler: (() -> Void)?
 
     var refreshInterval: TimeInterval {
         let saved = UserDefaults.standard.double(for: .refreshInterval)
@@ -34,10 +39,26 @@ class AppState {
 
         networkMonitor.startMonitoring()
 
+        speedMonitor.snapshotHandler = { [weak self] snapshot in
+            self?.speedSnapshotHandler?(snapshot)
+        }
+
+        speedMonitor.measuringChangedHandler = { [weak self] measuring in
+            self?.speedMeasuringChangedHandler?(measuring)
+        }
+
+        lastWifiSSID = IPAddressProvider.current().wifiName
+
         startTimer()
 
-        // Immediate outbound attempt on startup
+        // Immediate ping/connectivity check on startup
         checkConnection()
+
+        // Short delay before speed test to avoid cold-start DNS/TCP/TLS overhead
+        // skewing the first measurement lower than actual throughput.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            self?.speedMonitor.runNow()
+        }
     }
 
     // MARK: - Restart (when settings change)
@@ -47,6 +68,13 @@ class AppState {
         refreshTimer = nil
         startTimer()
         checkConnection()
+    }
+
+    // MARK: - On-demand refresh (e.g. user clicked a speed row)
+
+    func forceRefreshSpeed() {
+        checkConnection()
+        speedMonitor.runNow()
     }
 
     // MARK: - Timer
@@ -81,16 +109,30 @@ class AppState {
 
     private func checkConnection() {
 
+        let currentSSID = IPAddressProvider.current().wifiName
+        let ssidChanged = currentSSID != lastWifiSSID
+        lastWifiSSID = currentSSID
+
+        if ssidChanged {
+            speedResetHandler?()
+        }
+
         if !networkMonitor.isConnected {
             statusUpdateHandler?(.noNetwork)
             return
         }
 
         // Attempt outbound request
-        connectivityChecker.checkOutboundConnection { [weak self] reachable in
+        connectivityChecker.checkOutboundConnection { [weak self] reachable, latencyMs in
 
             DispatchQueue.main.async {
                 self?.statusUpdateHandler?(reachable ? .connected : .blocked)
+                if let ms = latencyMs {
+                    self?.speedMonitor.updatePing(ms)
+                }
+                if ssidChanged && reachable {
+                    self?.speedMonitor.runNow()
+                }
             }
         }
     }

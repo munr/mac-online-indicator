@@ -21,10 +21,10 @@ class ConnectivityChecker {
         return URLSession(configuration: configuration)
     }()
 
-    func checkOutboundConnection(completion: @escaping (Bool) -> Void) {
+    func checkOutboundConnection(completion: @escaping (Bool, Double?) -> Void) {
 
         guard let url = URL(string: Self.monitoringURLString) else {
-            completion(false)
+            completion(false, nil)
             return
         }
 
@@ -35,7 +35,11 @@ class ConnectivityChecker {
         request.httpMethod = "GET"
         request.timeoutInterval = 5
 
+        let probeStart = Date()
+
         let task = session.dataTask(with: request) { [weak self] data, response, error in
+
+            let elapsed = Date().timeIntervalSince(probeStart) * 1000
 
             if let urlError = error as? URLError, urlError.code == .cancelled {
                 return
@@ -44,13 +48,13 @@ class ConnectivityChecker {
             self?.currentTask = nil
 
             if error != nil {
-                completion(false)
+                completion(false, nil)
                 return
             }
 
             guard let httpResponse = response as? HTTPURLResponse,
                   (200...399).contains(httpResponse.statusCode) else {
-                completion(false)
+                completion(false, nil)
                 return
             }
 
@@ -59,9 +63,9 @@ class ConnectivityChecker {
             // own page with an HTTP 200 status code.
             if Self.monitoringURLString == Self.defaultURLString {
                 let body = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
-                completion(body.contains("Success"))
+                completion(body.contains("Success"), elapsed)
             } else {
-                completion(true)
+                completion(true, elapsed)
             }
         }
 
