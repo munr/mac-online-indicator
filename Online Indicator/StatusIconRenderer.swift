@@ -33,7 +33,7 @@ struct StatusIconRenderer {
             }
         }
 
-        let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+        let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
             .applying(NSImage.SymbolConfiguration(paletteColors: [color]))
         guard let tinted = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
             .withSymbolConfiguration(config) else { return nil }
