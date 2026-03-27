@@ -13,6 +13,7 @@ final class MenuBuilder: NSObject {
     private var ipv4MenuItem:     NSMenuItem?
     private var ipv6MenuItem:     NSMenuItem?
     private var gatewayMenuItem:  NSMenuItem?
+    private var externalIPMenuItem: NSMenuItem?
     private var pingMenuItem:        NSMenuItem?
     private var speedMenuItem:       NSMenuItem?
     private var pingItemView:        ClickableMenuItemView?
@@ -24,6 +25,7 @@ final class MenuBuilder: NSObject {
     private(set) var lastIPv6:       String?
     private(set) var lastGateway:    String?
     private(set) var lastDNSServers: [String] = []
+    private(set) var lastExternalIP: String?
 
     private let knownNetworksTag = 900
 
@@ -32,12 +34,17 @@ final class MenuBuilder: NSObject {
         UserDefaults.standard.bool(for: .showKnownNetworks, default: true)
     }
 
+    private var shouldShowExternalIP: Bool {
+        UserDefaults.standard.bool(for: .showExternalIP, default: true)
+    }
+
     // MARK: - Callbacks (set by AppDelegate after init)
 
     var onCopyIPv4:      ((String) -> Void)?
     var onCopyIPv6:      ((String) -> Void)?
     var onCopyGateway:   ((String) -> Void)?
     var onCopyDNS:       ((String) -> Void)?
+    var onCopyExternalIP: ((String) -> Void)?
     var onRefreshPing:   (() -> Void)?
     var onRefreshSpeed:  (() -> Void)?
     var onOpenSettings:  (() -> Void)?
@@ -61,21 +68,29 @@ final class MenuBuilder: NSObject {
         let wifiItem = NSMenuItem(title: "", action: #selector(openWiFiSettings), keyEquivalent: "")
         wifiItem.target          = self
         wifiItem.toolTip         = "Click to open Wi-Fi Settings"
-        wifiItem.attributedTitle = ipAttributedString(label: "WiFi", value: "Loading…", available: false)
+        wifiItem.attributedTitle = ipAttributedString(label: "WIFI  ", value: "Loading…", available: false)
         wifiMenuItem = wifiItem
         m.addItem(wifiItem)
+
+        let extIPItem = NSMenuItem(title: "", action: #selector(copyExternalIP), keyEquivalent: "")
+        extIPItem.target          = self
+        extIPItem.toolTip         = "Click to copy"
+        extIPItem.attributedTitle = ipAttributedString(label: "EXT   ", value: "Loading…", available: false)
+        extIPItem.isHidden        = !shouldShowExternalIP
+        externalIPMenuItem = extIPItem
+        m.addItem(extIPItem)
 
         let ipv4Item = NSMenuItem(title: "", action: #selector(copyIPv4), keyEquivalent: "")
         ipv4Item.target          = self
         ipv4Item.toolTip         = "Click to copy"
-        ipv4Item.attributedTitle = ipAttributedString(label: "IPv4", value: "Loading…", available: false)
+        ipv4Item.attributedTitle = ipAttributedString(label: "INT-V4", value: "Loading…", available: false)
         ipv4MenuItem = ipv4Item
         m.addItem(ipv4Item)
 
         let ipv6Item = NSMenuItem(title: "", action: #selector(copyIPv6), keyEquivalent: "")
         ipv6Item.target          = self
         ipv6Item.toolTip         = "Click to copy"
-        ipv6Item.attributedTitle = ipAttributedString(label: "IPv6", value: "Loading…", available: false)
+        ipv6Item.attributedTitle = ipAttributedString(label: "INT-V6", value: "Loading…", available: false)
         ipv6MenuItem = ipv6Item
         m.addItem(ipv6Item)
 
@@ -84,21 +99,21 @@ final class MenuBuilder: NSObject {
         let gatewayItem = NSMenuItem(title: "", action: #selector(copyGateway), keyEquivalent: "")
         gatewayItem.target          = self
         gatewayItem.toolTip         = "Click to copy"
-        gatewayItem.attributedTitle = ipAttributedString(label: "GW  ", value: "Loading…", available: false)
+        gatewayItem.attributedTitle = ipAttributedString(label: "GW    ", value: "Loading…", available: false)
         gatewayMenuItem = gatewayItem
         m.addItem(gatewayItem)
 
         let dnsItem = NSMenuItem(title: "", action: #selector(copyDNS), keyEquivalent: "")
         dnsItem.target          = self
         dnsItem.toolTip         = "Click to copy"
-        dnsItem.attributedTitle = ipAttributedString(label: "DNS ", value: "Loading…", available: false)
+        dnsItem.attributedTitle = ipAttributedString(label: "DNS   ", value: "Loading…", available: false)
         dnsItem.tag             = dnsTag
         m.addItem(dnsItem)
 
         m.addItem(.separator())
 
         let pingView = ClickableMenuItemView(frame: NSRect(x: 0, y: 0, width: 260, height: 22))
-        pingView.setAttributedString(ipAttributedString(label: "PING", value: "—", available: false))
+        pingView.setAttributedString(ipAttributedString(label: "PING  ", value: "—", available: false))
         pingView.onRefresh = { [weak self] in self?.refreshPing() }
         pingItemView = pingView
         let pingItem = NSMenuItem()
@@ -150,22 +165,22 @@ final class MenuBuilder: NSObject {
         lastDNSServers = addresses.dnsServers
 
         wifiMenuItem?.attributedTitle = ipAttributedString(
-            label: "WiFi",
+            label: "WIFI  ",
             value: addresses.wifiName ?? "Unavailable",
             available: addresses.wifiName != nil
         )
         ipv4MenuItem?.attributedTitle = ipAttributedString(
-            label: "IPv4",
+            label: "INT-V4",
             value: addresses.ipv4 ?? "Unavailable",
             available: addresses.ipv4 != nil
         )
         ipv6MenuItem?.attributedTitle = ipAttributedString(
-            label: "IPv6",
+            label: "INT-V6",
             value: addresses.ipv6 ?? "Unavailable",
             available: addresses.ipv6 != nil
         )
         gatewayMenuItem?.attributedTitle = ipAttributedString(
-            label: "GW  ",
+            label: "GW    ",
             value: addresses.gateway ?? "Unavailable",
             available: addresses.gateway != nil
         )
@@ -190,12 +205,12 @@ final class MenuBuilder: NSObject {
             let item = NSMenuItem(title: "", action: #selector(copyDNS), keyEquivalent: "")
             item.target          = self
             item.toolTip         = "Click to copy"
-            item.attributedTitle = ipAttributedString(label: "DNS ", value: "Unavailable", available: false)
+            item.attributedTitle = ipAttributedString(label: "DNS   ", value: "Unavailable", available: false)
             item.tag             = dnsTag
             menu.insertItem(item, at: firstIndex)
         } else {
             for (i, server) in servers.enumerated() {
-                let label = i == 0 ? "DNS " : "    "
+                let label = i == 0 ? "DNS   " : "      "
                 let item = NSMenuItem(title: "", action: #selector(copyDNS), keyEquivalent: "")
                 item.target          = self
                 item.toolTip         = "Click to copy"
@@ -209,7 +224,7 @@ final class MenuBuilder: NSObject {
     // MARK: - Speed Reset
 
     func clearSpeedSnapshot() {
-        pingItemView?.setAttributedString(ipAttributedString(label: "PING", value: "—", available: false))
+        pingItemView?.setAttributedString(ipAttributedString(label: "PING  ", value: "—", available: false))
         speedItemView?.setAttributedString(combinedSpeedAttributedString(download: nil, upload: nil, updating: false))
     }
 
@@ -228,7 +243,7 @@ final class MenuBuilder: NSObject {
     func updateSpeedSnapshot(_ snapshot: NetworkSpeedMonitor.Snapshot) {
         // Ping is independent — update it immediately whenever it arrives.
         pingItemView?.setAttributedString(ipAttributedString(
-            label: "PING",
+            label: "PING  ",
             value: snapshot.pingMs.map { String(format: "%.0f ms", $0) } ?? "—",
             available: snapshot.pingMs != nil
         ))
@@ -243,12 +258,12 @@ final class MenuBuilder: NSObject {
 
     private func combinedSpeedAttributedString(download: Double?, upload: Double?, updating: Bool) -> NSAttributedString {
         if updating {
-            return ipAttributedString(label: "SPEED", value: "Updating…", available: false, spacer: "  ")
+            return ipAttributedString(label: "SPEED ", value: "Updating…", available: false)
         }
         guard let dl = download, let ul = upload else {
-            return ipAttributedString(label: "SPEED", value: "—", available: false, spacer: "  ")
+            return ipAttributedString(label: "SPEED ", value: "—", available: false)
         }
-        return ipAttributedString(label: "SPEED", value: "↓ \(formatSpeed(dl))  ↑ \(formatSpeed(ul))", available: true, spacer: "  ")
+        return ipAttributedString(label: "SPEED ", value: "↓ \(formatSpeed(dl))  ↑ \(formatSpeed(ul))", available: true)
     }
 
     private func formatSpeed(_ mbps: Double) -> String {
@@ -400,8 +415,26 @@ final class MenuBuilder: NSObject {
         onCopyDNS?(value)
     }
 
+    @objc private func copyExternalIP() {
+        guard let ip = lastExternalIP else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(ip, forType: .string)
+        onCopyExternalIP?(ip)
+    }
+
+    func updateExternalIP(_ ip: String?) {
+        lastExternalIP = ip
+        externalIPMenuItem?.isHidden = !shouldShowExternalIP
+        guard shouldShowExternalIP else { return }
+        externalIPMenuItem?.attributedTitle = ipAttributedString(
+            label: "EXT   ",
+            value: ip ?? "Unavailable",
+            available: ip != nil
+        )
+    }
+
     @objc private func refreshPing() {
-        pingItemView?.setAttributedString(ipAttributedString(label: "PING", value: "Updating…", available: false))
+        pingItemView?.setAttributedString(ipAttributedString(label: "PING  ", value: "Updating…", available: false))
         onRefreshPing?()
     }
 
@@ -443,13 +476,34 @@ final class ClickableMenuItemView: NSView {
 
     private let textField = NSTextField(labelWithString: "")
     private var trackingArea: NSTrackingArea?
-    private var isHighlighted = false { didSet { needsDisplay = true } }
+
+    private let highlightView: NSVisualEffectView = {
+        let v = NSVisualEffectView()
+        v.material         = .selection
+        v.state            = .active
+        v.isEmphasized     = true
+        v.wantsLayer       = true
+        v.layer?.cornerRadius = 4
+        v.isHidden         = true
+        v.translatesAutoresizingMaskIntoConstraints = false
+        return v
+    }()
 
     override init(frame: NSRect) {
         super.init(frame: frame)
+        autoresizingMask = [.width]
+
+        addSubview(highlightView)
+        NSLayoutConstraint.activate([
+            highlightView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            highlightView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            highlightView.topAnchor.constraint(equalTo: topAnchor, constant: 1),
+            highlightView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -1),
+        ])
+
         textField.translatesAutoresizingMaskIntoConstraints = false
-        textField.isEditable   = false
-        textField.isBordered   = false
+        textField.isEditable      = false
+        textField.isBordered      = false
         textField.drawsBackground = false
         addSubview(textField)
         NSLayoutConstraint.activate([
@@ -471,19 +525,12 @@ final class ClickableMenuItemView: NSView {
         trackingArea = ta
     }
 
-    override func mouseEntered(with event: NSEvent) { isHighlighted = true }
-    override func mouseExited(with event: NSEvent)  { isHighlighted = false }
+    override func mouseEntered(with event: NSEvent) { highlightView.isHidden = false }
+    override func mouseExited(with event: NSEvent)  { highlightView.isHidden = true }
 
     override func mouseDown(with event: NSEvent) {
         onRefresh?()
         // Intentionally not calling super — keeps the menu open.
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        if isHighlighted {
-            NSColor.selectedMenuItemColor.setFill()
-            NSBezierPath(roundedRect: bounds.insetBy(dx: 4, dy: 1), xRadius: 4, yRadius: 4).fill()
-        }
     }
 }
 
