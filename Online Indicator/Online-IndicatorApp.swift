@@ -107,7 +107,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         menuBuilder.updateAddresses(IPAddressProvider.current())
-        guard UserDefaults.standard.bool(for: .showExternalIP, default: true) else { return }
         externalIPFetcher.fetch { [weak self] ip in
             self?.menuBuilder.updateExternalIP(ip)
         }

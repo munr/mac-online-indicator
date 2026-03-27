@@ -39,7 +39,7 @@ final class WindowCoordinator: NSObject, NSWindowDelegate {
         }
 
         let window = makeWindow(
-            size: NSSize(width: 440, height: 565),
+            size: NSSize(width: 440, height: 510),
             styleMask: [.titled, .closable]
         )
         window.title = AppInfo.appName

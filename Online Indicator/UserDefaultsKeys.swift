@@ -5,7 +5,6 @@ extension UserDefaults {
     enum Key: String {
         case refreshInterval    = "refreshInterval"
         case pingURL            = "pingURL"
-        case showExternalIP     = "showExternalIP"
         case userIconSets       = "userIconSets_v1"
         // Update checker
         case lastUpdateCheck    = "lastUpdateCheck"

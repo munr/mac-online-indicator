@@ -25,10 +25,6 @@ final class MenuBuilder: NSObject {
     private(set) var lastDNSServers: [String] = []
     private(set) var lastExternalIP: String?
 
-    private var shouldShowExternalIP: Bool {
-        UserDefaults.standard.bool(for: .showExternalIP, default: true)
-    }
-
     // MARK: - Callbacks (set by AppDelegate after init)
 
     var onCopyIPv4:      ((String) -> Void)?
@@ -67,7 +63,6 @@ final class MenuBuilder: NSObject {
         extIPItem.target          = self
         extIPItem.toolTip         = "Click to copy"
         extIPItem.attributedTitle = ipAttributedString(label: "EXT   ", value: "Loading…", available: false)
-        extIPItem.isHidden        = !shouldShowExternalIP
         externalIPMenuItem = extIPItem
         m.addItem(extIPItem)
 
@@ -301,8 +296,6 @@ final class MenuBuilder: NSObject {
 
     func updateExternalIP(_ ip: String?) {
         lastExternalIP = ip
-        externalIPMenuItem?.isHidden = !shouldShowExternalIP
-        guard shouldShowExternalIP else { return }
         externalIPMenuItem?.attributedTitle = ipAttributedString(
             label: "EXT   ",
             value: ip ?? "Unavailable",

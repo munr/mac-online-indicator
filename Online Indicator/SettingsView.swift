@@ -14,7 +14,6 @@ struct SettingsView: View {
     @State private var pingURL          = ""
     @State private var pingURLSaved     = false
     @State private var pingURLInvalid   = false
-    @State private var showExternalIP    = true
     @State private var isLaunchEnabled  = false
     @State private var loginItemError: String?
 
@@ -180,7 +179,6 @@ struct SettingsView: View {
             isLaunchEnabled = LoginItemManager.shared.isEnabled()
             intervalText    = formatInterval(interval)
             pingURL         = UserDefaults.standard.string(for: .pingURL) ?? ""
-            showExternalIP    = UserDefaults.standard.bool(for: .showExternalIP, default: true)
             connectedSlot   = IconPreferences.slot(for: .connected)
             blockedSlot     = IconPreferences.slot(for: .blocked)
             noNetworkSlot   = IconPreferences.slot(for: .noNetwork)
@@ -228,22 +226,6 @@ struct SettingsView: View {
                                     isLaunchEnabled = !newValue
                                     loginItemError = error.localizedDescription
                                 }
-                            }
-                    }
-
-                    Divider().padding(.leading, 56)
-
-                    SettingsRow(
-                        icon: "globe",
-                        iconColor: .indigo,
-                        title: "Show External IP",
-                        subtitle: "Fetch and display your public IP address in the menu",
-                        onTap: { showExternalIP.toggle() }
-                    ) {
-                        Toggle("", isOn: $showExternalIP)
-                            .labelsHidden()
-                            .onChange(of: showExternalIP) { _, newValue in
-                                UserDefaults.standard.set(newValue, for: .showExternalIP)
                             }
                     }
 
