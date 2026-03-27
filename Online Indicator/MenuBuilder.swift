@@ -480,6 +480,7 @@ final class ClickableMenuItemView: NSView {
 
     override init(frame: NSRect) {
         super.init(frame: frame)
+        autoresizingMask = [.width]
         textField.translatesAutoresizingMaskIntoConstraints = false
         textField.isEditable   = false
         textField.isBordered   = false
