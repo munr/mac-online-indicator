@@ -476,14 +476,34 @@ final class ClickableMenuItemView: NSView {
 
     private let textField = NSTextField(labelWithString: "")
     private var trackingArea: NSTrackingArea?
-    private var isHighlighted = false { didSet { needsDisplay = true } }
+
+    private let highlightView: NSVisualEffectView = {
+        let v = NSVisualEffectView()
+        v.material         = .selection
+        v.state            = .active
+        v.isEmphasized     = true
+        v.wantsLayer       = true
+        v.layer?.cornerRadius = 4
+        v.isHidden         = true
+        v.translatesAutoresizingMaskIntoConstraints = false
+        return v
+    }()
 
     override init(frame: NSRect) {
         super.init(frame: frame)
         autoresizingMask = [.width]
+
+        addSubview(highlightView)
+        NSLayoutConstraint.activate([
+            highlightView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            highlightView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            highlightView.topAnchor.constraint(equalTo: topAnchor, constant: 1),
+            highlightView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -1),
+        ])
+
         textField.translatesAutoresizingMaskIntoConstraints = false
-        textField.isEditable   = false
-        textField.isBordered   = false
+        textField.isEditable      = false
+        textField.isBordered      = false
         textField.drawsBackground = false
         addSubview(textField)
         NSLayoutConstraint.activate([
@@ -505,19 +525,12 @@ final class ClickableMenuItemView: NSView {
         trackingArea = ta
     }
 
-    override func mouseEntered(with event: NSEvent) { isHighlighted = true }
-    override func mouseExited(with event: NSEvent)  { isHighlighted = false }
+    override func mouseEntered(with event: NSEvent) { highlightView.isHidden = false }
+    override func mouseExited(with event: NSEvent)  { highlightView.isHidden = true }
 
     override func mouseDown(with event: NSEvent) {
         onRefresh?()
         // Intentionally not calling super — keeps the menu open.
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        if isHighlighted {
-            NSColor.selectedMenuItemColor.setFill()
-            NSBezierPath(roundedRect: bounds.insetBy(dx: 4, dy: 1), xRadius: 4, yRadius: 4).fill()
-        }
     }
 }
 
