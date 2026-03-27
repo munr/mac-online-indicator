@@ -1,10 +1,8 @@
 import AppKit
-import CoreWLAN
 
-/// Builds and manages the status bar NSMenu, including dynamic IP address rows
-/// and the Known Networks panel. Menu item actions are handled here as @objc
-/// targets; higher-level actions (open settings, quit, show popover) are
-/// forwarded via callbacks set by AppDelegate.
+/// Builds and manages the status bar NSMenu, including dynamic IP address rows.
+/// Menu item actions are handled here as @objc targets; higher-level actions
+/// (open settings, quit, show popover) are forwarded via callbacks set by AppDelegate.
 final class MenuBuilder: NSObject {
 
     private(set) var menu: NSMenu!
@@ -26,17 +24,6 @@ final class MenuBuilder: NSObject {
     private(set) var lastGateway:    String?
     private(set) var lastDNSServers: [String] = []
     private(set) var lastExternalIP: String?
-
-    private let knownNetworksTag = 900
-
-    
-    private var shouldShowKnownNetworks: Bool {
-        UserDefaults.standard.bool(for: .showKnownNetworks, default: true)
-    }
-
-    private var shouldShowExternalIP: Bool {
-        UserDefaults.standard.bool(for: .showExternalIP, default: true)
-    }
 
     // MARK: - Callbacks (set by AppDelegate after init)
 
@@ -76,7 +63,6 @@ final class MenuBuilder: NSObject {
         extIPItem.target          = self
         extIPItem.toolTip         = "Click to copy"
         extIPItem.attributedTitle = ipAttributedString(label: "EXT   ", value: "Loading…", available: false)
-        extIPItem.isHidden        = !shouldShowExternalIP
         externalIPMenuItem = extIPItem
         m.addItem(extIPItem)
 
@@ -134,12 +120,6 @@ final class MenuBuilder: NSObject {
 
         m.addItem(.separator())
 
-        // Known Networks items are inserted dynamically here on each menu open.
-        // A tagged separator marks the insertion anchor.
-        let anchor = NSMenuItem.separator()
-        anchor.tag = knownNetworksTag
-        m.addItem(anchor)
-
         let settingsItem = NSMenuItem(title: "Settings", action: #selector(handleSettings), keyEquivalent: "")
         settingsItem.target = self
         settingsItem.image  = NSImage(systemSymbolName: "gear", accessibilityDescription: nil)
@@ -186,7 +166,6 @@ final class MenuBuilder: NSObject {
         )
         refreshDNSItems(servers: addresses.dnsServers)
 
-        refreshKnownNetworks(currentSSID: addresses.wifiName)
     }
 
     private func refreshDNSItems(servers: [String]) {
@@ -273,113 +252,6 @@ final class MenuBuilder: NSObject {
         return String(format: "%.0f Kbps", mbps * 1000)
     }
 
-    // MARK: - Known Networks
-
-    private func refreshKnownNetworks(currentSSID: String?) {
-        guard let menu else { return }
-
-        // Remove previously inserted dynamic items (identified by tag)
-        while let old = menu.items.first(where: { $0.tag == knownNetworksTag + 1 }) {
-            menu.removeItem(old)
-        }
-        
-        guard shouldShowKnownNetworks else { return }
-
-        guard let anchorIndex = menu.items.firstIndex(where: { $0.tag == knownNetworksTag }) else { return }
-
-        guard let iface    = CWWiFiClient.shared().interface(),
-              let config   = iface.configuration(),
-              let profiles = config.networkProfiles.array as? [CWNetworkProfile],
-              !profiles.isEmpty else { return }
-
-        let nearbySSIDs: Set<String>
-        if let cached = iface.cachedScanResults() {
-            nearbySSIDs = Set(cached.compactMap { $0.ssid })
-        } else {
-            nearbySSIDs = []
-        }
-
-        let visibleProfiles = profiles.filter { profile in
-            guard let ssid = profile.ssid else { return false }
-            if let currentSSID, ssid == currentSSID { return true }
-            return nearbySSIDs.contains(ssid)
-        }
-
-        guard !visibleProfiles.isEmpty else { return }
-
-        var insertionIndex = anchorIndex
-
-        let headerLabel = NSTextField(labelWithString: "Known Networks")
-        headerLabel.font      = .systemFont(ofSize: 11, weight: .semibold)
-        headerLabel.textColor = .secondaryLabelColor
-        headerLabel.sizeToFit()
-        let headerView = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: headerLabel.frame.height + 8))
-        headerLabel.frame.origin = NSPoint(x: 14, y: 4)
-        headerView.addSubview(headerLabel)
-        let headerItem = NSMenuItem()
-        headerItem.view      = headerView
-        headerItem.isEnabled = false
-        headerItem.tag       = knownNetworksTag + 1
-        menu.insertItem(headerItem, at: insertionIndex)
-        insertionIndex += 1
-
-        for profile in visibleProfiles {
-            guard let ssid = profile.ssid else { continue }
-
-            let isConnected = currentSSID != nil && ssid == currentSSID
-            let isSecured   = profile.security != .none
-
-            let item = NSMenuItem(title: ssid, action: #selector(openWiFiSettings), keyEquivalent: "")
-            item.target = self
-            item.tag    = knownNetworksTag + 1
-
-            let wifiSymbol = isConnected ? "wifi.circle.fill" : "wifi"
-            let wifiConfig = NSImage.SymbolConfiguration(pointSize: 15, weight: .medium)
-                .applying(.init(paletteColors: isConnected ? [.white, .systemBlue] : [.secondaryLabelColor]))
-            item.image = NSImage(systemSymbolName: wifiSymbol, accessibilityDescription: nil)?
-                .withSymbolConfiguration(wifiConfig)
-
-            // Omitting .foregroundColor lets AppKit handle white-on-selection automatically.
-            let nameFont = NSFont.systemFont(ofSize: 13, weight: isConnected ? .semibold : .regular)
-            let title = NSMutableAttributedString()
-
-            if isSecured {
-                // Right-align the lock badge by tabbing to the far end of the title area.
-                let paraStyle = NSMutableParagraphStyle()
-                paraStyle.tabStops = [NSTextTab(textAlignment: .right, location: 195)]
-
-                title.append(NSAttributedString(string: ssid + "\t",
-                                                attributes: [.font: nameFont,
-                                                             .paragraphStyle: paraStyle]))
-
-                let lockConfig = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
-                let lockImage  = NSImage(systemSymbolName: "lock.fill", accessibilityDescription: "Secured")?
-                    .withSymbolConfiguration(lockConfig)
-                lockImage?.isTemplate = true  // renders in the current text color, turns white on selection
-                let lockAttachment = NSTextAttachment()
-                lockAttachment.image = lockImage
-                // Center the icon to the font's cap height so it sits level with the text.
-                let lockH: CGFloat = 10
-                let lockY = ((nameFont.capHeight - lockH) / 2).rounded(.towardZero)
-                lockAttachment.bounds = CGRect(x: 0, y: lockY, width: lockH, height: lockH)
-                let lockStr = NSMutableAttributedString(attachment: lockAttachment)
-                lockStr.addAttribute(.paragraphStyle, value: paraStyle,
-                                     range: NSRange(location: 0, length: lockStr.length))
-                title.append(lockStr)
-            } else {
-                title.append(NSAttributedString(string: ssid, attributes: [.font: nameFont]))
-            }
-
-            item.attributedTitle = title
-            menu.insertItem(item, at: insertionIndex)
-            insertionIndex += 1
-        }
-
-        let trailingSep = NSMenuItem.separator()
-        trailingSep.tag = knownNetworksTag + 1
-        menu.insertItem(trailingSep, at: insertionIndex)
-    }
-
     // MARK: - Actions
 
     @objc private func openWiFiSettings() {
@@ -424,8 +296,6 @@ final class MenuBuilder: NSObject {
 
     func updateExternalIP(_ ip: String?) {
         lastExternalIP = ip
-        externalIPMenuItem?.isHidden = !shouldShowExternalIP
-        guard shouldShowExternalIP else { return }
         externalIPMenuItem?.attributedTitle = ipAttributedString(
             label: "EXT   ",
             value: ip ?? "Unavailable",
@@ -550,6 +420,7 @@ final class MenuHeaderView: NSView {
 
     private func setup() {
         wantsLayer = true
+        autoresizingMask = .width
         nameLabel.stringValue    = AppInfo.appName
         versionLabel.stringValue = AppInfo.fullVersionString
 

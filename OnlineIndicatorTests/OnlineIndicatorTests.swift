@@ -172,7 +172,6 @@ final class UserDefaultsKeyTests: XCTestCase {
     func testRawValuesAreStable() {
         XCTAssertEqual(UserDefaults.Key.refreshInterval.rawValue, "refreshInterval")
         XCTAssertEqual(UserDefaults.Key.pingURL.rawValue,         "pingURL")
-        XCTAssertEqual(UserDefaults.Key.showKnownNetworks.rawValue, "showKnownNetworks")
         XCTAssertEqual(UserDefaults.Key.userIconSets.rawValue,    "userIconSets_v1")
     }
 }
