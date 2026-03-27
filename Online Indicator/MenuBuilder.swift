@@ -83,14 +83,14 @@ final class MenuBuilder: NSObject {
         let ipv4Item = NSMenuItem(title: "", action: #selector(copyIPv4), keyEquivalent: "")
         ipv4Item.target          = self
         ipv4Item.toolTip         = "Click to copy"
-        ipv4Item.attributedTitle = ipAttributedString(label: "IPv4", value: "Loading…", available: false)
+        ipv4Item.attributedTitle = ipAttributedString(label: "INT-V4", value: "Loading…", available: false)
         ipv4MenuItem = ipv4Item
         m.addItem(ipv4Item)
 
         let ipv6Item = NSMenuItem(title: "", action: #selector(copyIPv6), keyEquivalent: "")
         ipv6Item.target          = self
         ipv6Item.toolTip         = "Click to copy"
-        ipv6Item.attributedTitle = ipAttributedString(label: "IPv6", value: "Loading…", available: false)
+        ipv6Item.attributedTitle = ipAttributedString(label: "INT-V6", value: "Loading…", available: false)
         ipv6MenuItem = ipv6Item
         m.addItem(ipv6Item)
 
@@ -170,12 +170,12 @@ final class MenuBuilder: NSObject {
             available: addresses.wifiName != nil
         )
         ipv4MenuItem?.attributedTitle = ipAttributedString(
-            label: "IPv4",
+            label: "INT-V4",
             value: addresses.ipv4 ?? "Unavailable",
             available: addresses.ipv4 != nil
         )
         ipv6MenuItem?.attributedTitle = ipAttributedString(
-            label: "IPv6",
+            label: "INT-V6",
             value: addresses.ipv6 ?? "Unavailable",
             available: addresses.ipv6 != nil
         )
