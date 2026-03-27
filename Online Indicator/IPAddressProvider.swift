@@ -83,6 +83,28 @@ struct IPAddressProvider {
         return result
     }
 
+    // MARK: - VPN Detection
+
+    /// Returns `true` if any VPN tunnel interface (`utun*` or `ipsec*`) is up and has an assigned address.
+    static func isVPNActive() -> Bool {
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0 else { return false }
+        defer { freeifaddrs(ifaddr) }
+        var ptr = ifaddr
+        while let ifa = ptr?.pointee {
+            defer { ptr = ifa.ifa_next }
+            let name = String(cString: ifa.ifa_name)
+            guard name.hasPrefix("utun") || name.hasPrefix("ipsec"),
+                  let addr = ifa.ifa_addr,
+                  addr.pointee.sa_family == AF_INET,
+                  (ifa.ifa_flags & UInt32(IFF_UP)) != 0,
+                  (ifa.ifa_flags & UInt32(IFF_RUNNING)) != 0
+            else { continue }
+            return true
+        }
+        return false
+    }
+
     // MARK: - Gateway
 
     private static func defaultGateway() -> String? {

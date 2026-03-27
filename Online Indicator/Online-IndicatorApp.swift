@@ -118,7 +118,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let button = statusItem.button else { return }
 
         let wifiName = IPAddressProvider.current().wifiName
-        guard let output = StatusIconRenderer.render(for: status, wifiName: wifiName) else { return }
+        guard let output = StatusIconRenderer.render(
+            for: status,
+            wifiName: wifiName,
+            isVPNActive: AppState.shared.isVPNActive
+        ) else { return }
 
         button.toolTip = output.toolTip
         button.setAccessibilityLabel(output.accessibilityLabel)
