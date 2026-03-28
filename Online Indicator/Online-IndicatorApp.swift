@@ -49,9 +49,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         setupStatusItem()
 
         AppState.shared.statusUpdateHandler = { [weak self] status in
-            self?.currentStatus = status
-            self?.applyIcon(for: status)
-            self?.menuBuilder.updateVPNState(AppState.shared.isVPNActive)
+            guard let self else { return }
+            self.currentStatus = status
+            self.applyIcon(for: status)
+            if status == .noNetwork {
+                self.menuBuilder.updateAddresses(IPAddressProvider.Addresses())
+                self.menuBuilder.updateExternalIP(nil)
+                self.menuBuilder.updateISP(nil)
+                self.menuBuilder.updateVPNState(false)
+            } else {
+                self.menuBuilder.updateVPNState(AppState.shared.isVPNActive)
+            }
         }
 
         AppState.shared.speedSnapshotHandler = { [weak self] snapshot in

@@ -351,7 +351,7 @@ final class MenuBuilder: NSObject {
                 available: ip != nil
             )
         )
-        if isVPNActive {
+        if isVPNActive && ip != nil {
             str.append(NSAttributedString(string: "  "))
             str.append(vpnPillString())
         }
