@@ -79,14 +79,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let self else { return }
             self.menuBuilder.updateVPNState(AppState.shared.isVPNActive)
             self.menuBuilder.updateAddresses(IPAddressProvider.current())
-            self.externalIPFetcher.invalidateCache()
-            self.ispFetcher.invalidateCache()
-            self.externalIPFetcher.fetch { [weak self] ip in
-                self?.menuBuilder.updateExternalIP(ip)
-            }
-            self.ispFetcher.fetch { [weak self] isp in
-                self?.menuBuilder.updateISP(isp)
-            }
+            self.invalidateExternalCaches()
+            self.fetchExternalData()
             AppState.shared.forceRefreshPing()
             AppState.shared.forceRefreshSpeed()
         }
@@ -136,12 +130,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
         let addresses = IPAddressProvider.current()
         updateMenuAddresses(addresses)
-        externalIPFetcher.fetch { [weak self] ip in
-            self?.menuBuilder.updateExternalIP(ip)
-        }
-        ispFetcher.fetch { [weak self] isp in
-            self?.menuBuilder.updateISP(isp)
-        }
+        fetchExternalData()
         menuRefreshTimer?.invalidate()
         let timer = Timer(timeInterval: 5, repeats: true) { [weak self] _ in
             guard let self else { return }
@@ -156,8 +145,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func updateMenuAddresses(_ addresses: IPAddressProvider.Addresses) {
         let hasConnectivity = addresses.wifiName != nil || addresses.ipv4 != nil
         if lastKnownWifiName != nil && addresses.wifiName == nil {
-            externalIPFetcher.invalidateCache()
-            ispFetcher.invalidateCache()
+            invalidateExternalCaches()
             menuBuilder.updateExternalIP(nil)
             menuBuilder.updateISP(nil)
         }
@@ -168,6 +156,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuDidClose(_ menu: NSMenu) {
         menuRefreshTimer?.invalidate()
         menuRefreshTimer = nil
+    }
+
+    // MARK: - External data helpers
+
+    private func invalidateExternalCaches() {
+        externalIPFetcher.invalidateCache()
+        ispFetcher.invalidateCache()
+    }
+
+    private func fetchExternalData() {
+        externalIPFetcher.fetch { [weak self] ip in self?.menuBuilder.updateExternalIP(ip) }
+        ispFetcher.fetch { [weak self] isp in self?.menuBuilder.updateISP(isp) }
     }
 
     // MARK: - Icon
