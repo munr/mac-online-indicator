@@ -76,6 +76,8 @@ final class MenuBuilder: NSObject {
         ispMenuItem = ispItem
         m.addItem(ispItem)
 
+        m.addItem(.separator())
+
         let ipv4Item = NSMenuItem(title: "", action: #selector(copyIPv4), keyEquivalent: "")
         ipv4Item.target          = self
         ipv4Item.toolTip         = "Click to copy"
