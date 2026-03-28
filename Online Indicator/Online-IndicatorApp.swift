@@ -18,10 +18,10 @@ struct OnlineIndicatorApp: App {
 class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var statusItem: NSStatusItem!
-    private let menuBuilder        = MenuBuilder()
-    private let windowCoordinator  = WindowCoordinator()
-    private let externalIPFetcher  = ExternalIPFetcher()
-    private let ispFetcher         = ISPFetcher()
+    private let menuBuilder       = MenuBuilder()
+    private let windowCoordinator = WindowCoordinator()
+    private let externalIPFetcher = CachedFetcher.externalIP
+    private let ispFetcher        = CachedFetcher.isp
 
     private var currentStatus: AppState.ConnectionStatus = .noNetwork
     private var menuRefreshTimer: Timer?
