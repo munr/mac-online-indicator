@@ -62,50 +62,27 @@ final class MenuBuilder: NSObject {
         wifiMenuItem = wifiItem
         m.addItem(wifiItem)
 
-        let extIPItem = NSMenuItem(title: "", action: #selector(copyExternalIP), keyEquivalent: "")
-        extIPItem.target          = self
-        extIPItem.toolTip         = "Click to copy"
-        extIPItem.attributedTitle = ipAttributedString(label: "EXT   ", value: "Loading…", available: false)
-        externalIPMenuItem = extIPItem
-        m.addItem(extIPItem)
+        externalIPMenuItem = makeIPRow(label: "EXT   ", action: #selector(copyExternalIP))
+        m.addItem(externalIPMenuItem!)
 
-        let ispItem = NSMenuItem(title: "", action: #selector(copyISP), keyEquivalent: "")
-        ispItem.target          = self
-        ispItem.toolTip         = "Click to copy"
-        ispItem.attributedTitle = ipAttributedString(label: "ISP   ", value: "Loading…", available: false)
-        ispMenuItem = ispItem
-        m.addItem(ispItem)
+        ispMenuItem = makeIPRow(label: "ISP   ", action: #selector(copyISP))
+        m.addItem(ispMenuItem!)
 
         m.addItem(.separator())
 
-        let ipv4Item = NSMenuItem(title: "", action: #selector(copyIPv4), keyEquivalent: "")
-        ipv4Item.target          = self
-        ipv4Item.toolTip         = "Click to copy"
-        ipv4Item.attributedTitle = ipAttributedString(label: "INT-V4", value: "Loading…", available: false)
-        ipv4MenuItem = ipv4Item
-        m.addItem(ipv4Item)
+        ipv4MenuItem = makeIPRow(label: "INT-V4", action: #selector(copyIPv4))
+        m.addItem(ipv4MenuItem!)
 
-        let ipv6Item = NSMenuItem(title: "", action: #selector(copyIPv6), keyEquivalent: "")
-        ipv6Item.target          = self
-        ipv6Item.toolTip         = "Click to copy"
-        ipv6Item.attributedTitle = ipAttributedString(label: "INT-V6", value: "Loading…", available: false)
-        ipv6MenuItem = ipv6Item
-        m.addItem(ipv6Item)
+        ipv6MenuItem = makeIPRow(label: "INT-V6", action: #selector(copyIPv6))
+        m.addItem(ipv6MenuItem!)
 
         m.addItem(.separator())
 
-        let gatewayItem = NSMenuItem(title: "", action: #selector(copyGateway), keyEquivalent: "")
-        gatewayItem.target          = self
-        gatewayItem.toolTip         = "Click to copy"
-        gatewayItem.attributedTitle = ipAttributedString(label: "GW    ", value: "Loading…", available: false)
-        gatewayMenuItem = gatewayItem
-        m.addItem(gatewayItem)
+        gatewayMenuItem = makeIPRow(label: "GW    ", action: #selector(copyGateway))
+        m.addItem(gatewayMenuItem!)
 
-        let dnsItem = NSMenuItem(title: "", action: #selector(copyDNS), keyEquivalent: "")
-        dnsItem.target          = self
-        dnsItem.toolTip         = "Click to copy"
-        dnsItem.attributedTitle = ipAttributedString(label: "DNS   ", value: "Loading…", available: false)
-        dnsItem.tag             = dnsTag
+        let dnsItem = makeIPRow(label: "DNS   ", action: #selector(copyDNS))
+        dnsItem.tag  = dnsTag
         m.addItem(dnsItem)
 
         m.addItem(.separator())
@@ -146,6 +123,16 @@ final class MenuBuilder: NSObject {
 
         menu = m
         return m
+    }
+
+    // MARK: - Menu item factory
+
+    private func makeIPRow(label: String, action: Selector) -> NSMenuItem {
+        let item = NSMenuItem(title: "", action: action, keyEquivalent: "")
+        item.target          = self
+        item.toolTip         = "Click to copy"
+        item.attributedTitle = ipAttributedString(label: label, value: "Loading…", available: false)
+        return item
     }
 
     // MARK: - Dynamic Address Update
@@ -281,46 +268,22 @@ final class MenuBuilder: NSObject {
         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.wifi-settings-extension")!)
     }
 
-    @objc private func copyIPv4() {
-        guard let ip = lastIPv4 else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(ip, forType: .string)
-        onCopyIPv4?(ip)
-    }
-
-    @objc private func copyIPv6() {
-        guard let ip = lastIPv6 else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(ip, forType: .string)
-        onCopyIPv6?(ip)
-    }
-
-    @objc private func copyGateway() {
-        guard let gw = lastGateway else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(gw, forType: .string)
-        onCopyGateway?(gw)
-    }
+    @objc private func copyIPv4()      { copyToPasteboard(lastIPv4,       callback: onCopyIPv4) }
+    @objc private func copyIPv6()      { copyToPasteboard(lastIPv6,       callback: onCopyIPv6) }
+    @objc private func copyGateway()   { copyToPasteboard(lastGateway,    callback: onCopyGateway) }
+    @objc private func copyExternalIP(){ copyToPasteboard(lastExternalIP, callback: onCopyExternalIP) }
+    @objc private func copyISP()       { copyToPasteboard(lastISP) }
 
     @objc private func copyDNS() {
         guard !lastDNSServers.isEmpty else { return }
-        let value = lastDNSServers.joined(separator: "\n")
+        copyToPasteboard(lastDNSServers.joined(separator: "\n"), callback: onCopyDNS)
+    }
+
+    private func copyToPasteboard(_ value: String?, callback: ((String) -> Void)? = nil) {
+        guard let value else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(value, forType: .string)
-        onCopyDNS?(value)
-    }
-
-    @objc private func copyExternalIP() {
-        guard let ip = lastExternalIP else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(ip, forType: .string)
-        onCopyExternalIP?(ip)
-    }
-
-    @objc private func copyISP() {
-        guard let isp = lastISP else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(isp, forType: .string)
+        callback?(value)
     }
 
     func updateExternalIP(_ ip: String?) {
