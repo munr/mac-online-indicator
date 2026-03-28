@@ -24,6 +24,7 @@ final class MenuBuilder: NSObject {
     private(set) var lastGateway:    String?
     private(set) var lastDNSServers: [String] = []
     private(set) var lastExternalIP: String?
+    private var isVPNActive: Bool = false
 
     // MARK: - Callbacks (set by AppDelegate after init)
 
@@ -296,11 +297,28 @@ final class MenuBuilder: NSObject {
 
     func updateExternalIP(_ ip: String?) {
         lastExternalIP = ip
-        externalIPMenuItem?.attributedTitle = ipAttributedString(
-            label: "EXT   ",
-            value: ip ?? "Unavailable",
-            available: ip != nil
+        refreshExternalIPRow()
+    }
+
+    func updateVPNState(_ active: Bool) {
+        isVPNActive = active
+        refreshExternalIPRow()
+    }
+
+    private func refreshExternalIPRow() {
+        let ip = lastExternalIP
+        let str = NSMutableAttributedString(
+            attributedString: ipAttributedString(
+                label: "EXT   ",
+                value: ip ?? "Unavailable",
+                available: ip != nil
+            )
         )
+        if isVPNActive {
+            str.append(NSAttributedString(string: "  "))
+            str.append(vpnPillString())
+        }
+        externalIPMenuItem?.attributedTitle = str
     }
 
     @objc private func refreshPing() {
@@ -315,6 +333,40 @@ final class MenuBuilder: NSObject {
 
     @objc private func handleSettings() { onOpenSettings?() }
     @objc private func handleQuit()     { onQuit?() }
+
+    // MARK: - VPN pill
+
+    private func vpnPillString() -> NSAttributedString {
+        let text = " VPN "
+        let font = NSFont.monospacedSystemFont(ofSize: 9, weight: .semibold)
+        let size = (text as NSString).size(withAttributes: [.font: font])
+        let pillSize = NSSize(width: size.width + 2, height: size.height + 1)
+
+        let image = NSImage(size: pillSize, flipped: false) { rect in
+            let path = NSBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5),
+                                    xRadius: rect.height / 2,
+                                    yRadius: rect.height / 2)
+            NSColor.systemBlue.withAlphaComponent(0.18).setFill()
+            path.fill()
+            NSColor.systemBlue.setStroke()
+            path.lineWidth = 0.5
+            path.stroke()
+            let textAttrs: [NSAttributedString.Key: Any] = [
+                .font:            font,
+                .foregroundColor: NSColor.systemBlue
+            ]
+            let textSize = (text as NSString).size(withAttributes: textAttrs)
+            let textOrigin = NSPoint(x: (rect.width - textSize.width) / 2,
+                                     y: (rect.height - textSize.height) / 2)
+            (text as NSString).draw(at: textOrigin, withAttributes: textAttrs)
+            return true
+        }
+
+        let attachment = NSTextAttachment()
+        attachment.image = image
+        attachment.bounds = NSRect(x: 0, y: -2, width: pillSize.width, height: pillSize.height)
+        return NSAttributedString(attachment: attachment)
+    }
 
     // MARK: - IP attributed string
 

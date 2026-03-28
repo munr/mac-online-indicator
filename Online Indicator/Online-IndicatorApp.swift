@@ -49,6 +49,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         AppState.shared.statusUpdateHandler = { [weak self] status in
             self?.currentStatus = status
             self?.applyIcon(for: status)
+            self?.menuBuilder.updateVPNState(AppState.shared.isVPNActive)
         }
 
         AppState.shared.speedSnapshotHandler = { [weak self] snapshot in
@@ -61,6 +62,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         AppState.shared.speedResetHandler = { [weak self] in
             self?.menuBuilder.clearSpeedSnapshot()
+        }
+
+        AppState.shared.vpnStatusChangedHandler = { [weak self] in
+            guard let self else { return }
+            self.menuBuilder.updateVPNState(AppState.shared.isVPNActive)
+            self.menuBuilder.updateAddresses(IPAddressProvider.current())
+            self.externalIPFetcher.invalidateCache()
+            self.externalIPFetcher.fetch { [weak self] ip in
+                self?.menuBuilder.updateExternalIP(ip)
+            }
+            AppState.shared.forceRefreshPing()
+            AppState.shared.forceRefreshSpeed()
         }
 
         AppState.shared.start()
@@ -118,7 +131,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let button = statusItem.button else { return }
 
         let wifiName = IPAddressProvider.current().wifiName
-        guard let output = StatusIconRenderer.render(for: status, wifiName: wifiName) else { return }
+        guard let output = StatusIconRenderer.render(
+            for: status,
+            wifiName: wifiName,
+            isVPNActive: AppState.shared.isVPNActive
+        ) else { return }
 
         button.toolTip = output.toolTip
         button.setAccessibilityLabel(output.accessibilityLabel)

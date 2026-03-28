@@ -18,7 +18,10 @@ class AppState {
         case noNetwork
     }
 
+    private(set) var isVPNActive: Bool = false
+
     var statusUpdateHandler: ((ConnectionStatus) -> Void)?
+    var vpnStatusChangedHandler: (() -> Void)?
     var speedSnapshotHandler: ((NetworkSpeedMonitor.Snapshot) -> Void)?
     var speedMeasuringChangedHandler: ((Bool) -> Void)?
     var speedResetHandler: (() -> Void)?
@@ -118,6 +121,12 @@ class AppState {
 
         if ssidChanged {
             speedResetHandler?()
+        }
+
+        let previousVPNActive = isVPNActive
+        isVPNActive = IPAddressProvider.isVPNActive()
+        if isVPNActive != previousVPNActive {
+            vpnStatusChangedHandler?()
         }
 
         if !networkMonitor.isConnected {

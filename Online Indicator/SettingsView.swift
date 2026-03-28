@@ -35,6 +35,8 @@ struct SettingsView: View {
     @State private var showCopiedToast   = false
     @State private var copiedSymbolName  = ""
 
+    @AppStorage("showVPNBadge") private var showVPNBadge = true
+
     @StateObject private var userSetsStore      = UserIconSetsStore()
     @State private var showSaveSetPanel         = false
     @State private var saveSetName              = ""
@@ -639,6 +641,22 @@ struct SettingsView: View {
                                 .transition(.move(edge: .top).combined(with: .opacity))
                             }
                         }
+                    }
+                }
+
+                SettingsSection(title: "VPN") {
+                    SettingsRow(
+                        icon: "lock.shield.fill",
+                        iconColor: .blue,
+                        title: "Show VPN Badge",
+                        subtitle: "Overlay a badge on the menu bar icon when a VPN tunnel is active",
+                        onTap: { showVPNBadge.toggle() }
+                    ) {
+                        Toggle("", isOn: $showVPNBadge)
+                            .labelsHidden()
+                            .onChange(of: showVPNBadge) { _, _ in
+                                NotificationCenter.default.post(name: .iconPreferencesChanged, object: nil)
+                            }
                     }
                 }
 

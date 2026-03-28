@@ -15,7 +15,8 @@ struct StatusIconRenderer {
 
     static func render(
         for status: AppState.ConnectionStatus,
-        wifiName: String? = nil
+        wifiName: String? = nil,
+        isVPNActive: Bool = false
     ) -> Output? {
         let pref = IconPreferences.slot(for: status)
 
@@ -35,8 +36,11 @@ struct StatusIconRenderer {
 
         let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .medium)
             .applying(NSImage.SymbolConfiguration(paletteColors: [color]))
-        guard let tinted = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
+        guard let base = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
             .withSymbolConfiguration(config) else { return nil }
+
+        let showBadge = isVPNActive && UserDefaults.standard.bool(for: .showVPNBadge, default: true)
+        let tinted = showBadge ? compositeVPNBadge(onto: base) : base
 
         let toolTip: String
         let a11yLabel: String
@@ -88,5 +92,31 @@ struct StatusIconRenderer {
             toolTip:            toolTip,
             accessibilityLabel: a11yLabel
         )
+    }
+
+    // MARK: - VPN Badge
+
+    private static func compositeVPNBadge(onto base: NSImage) -> NSImage {
+        let size = base.size
+        let badgeSize = NSSize(width: size.width * 0.5, height: size.height * 0.5)
+
+        let badgeConfig = NSImage.SymbolConfiguration(pointSize: 8, weight: .bold)
+            .applying(NSImage.SymbolConfiguration(paletteColors: [.white]))
+        guard let badge = NSImage(systemSymbolName: "lock.shield.fill", accessibilityDescription: nil)?
+            .withSymbolConfiguration(badgeConfig) else { return base }
+
+        let result = NSImage(size: size, flipped: false) { rect in
+            base.draw(in: rect)
+            let badgeRect = NSRect(
+                x: rect.maxX - badgeSize.width,
+                y: rect.minY,
+                width: badgeSize.width,
+                height: badgeSize.height
+            )
+            badge.draw(in: badgeRect)
+            return true
+        }
+        result.isTemplate = false
+        return result
     }
 }
