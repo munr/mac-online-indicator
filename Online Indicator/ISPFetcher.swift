@@ -4,7 +4,8 @@ import Foundation
 /// Results are cached in-memory for 60 seconds, matching the ExternalIPFetcher TTL.
 final class ISPFetcher {
 
-    private static let serviceURL = URL(string: "https://ip-api.com/json?fields=isp")!
+    // Returns plain-text org string, e.g. "AS7922 Comcast Cable Communications, LLC"
+    private static let serviceURL = URL(string: "https://ipinfo.io/org")!
     private static let cacheTTL: TimeInterval = 60
 
     private var currentTask: URLSessionDataTask?
@@ -37,11 +38,13 @@ final class ISPFetcher {
             self?.currentTask = nil
 
             var isp: String?
-            if let data,
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let name = json["isp"] as? String,
-               !name.isEmpty {
-                isp = name
+            if let data, let str = String(data: data, encoding: .utf8) {
+                // Strip leading "AS<number> " prefix if present, e.g. "AS7922 Comcast" → "Comcast"
+                var org = str.trimmingCharacters(in: .whitespacesAndNewlines)
+                if org.hasPrefix("AS"), let spaceIndex = org.firstIndex(of: " ") {
+                    org = String(org[org.index(after: spaceIndex)...])
+                }
+                if !org.isEmpty { isp = org }
             }
             if let isp {
                 self?.lastFetchedISP = isp
