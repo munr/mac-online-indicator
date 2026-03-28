@@ -21,6 +21,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let menuBuilder        = MenuBuilder()
     private let windowCoordinator  = WindowCoordinator()
     private let externalIPFetcher  = ExternalIPFetcher()
+    private let ispFetcher         = ISPFetcher()
 
     private var currentStatus: AppState.ConnectionStatus = .noNetwork
 
@@ -69,8 +70,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.menuBuilder.updateVPNState(AppState.shared.isVPNActive)
             self.menuBuilder.updateAddresses(IPAddressProvider.current())
             self.externalIPFetcher.invalidateCache()
+            self.ispFetcher.invalidateCache()
             self.externalIPFetcher.fetch { [weak self] ip in
                 self?.menuBuilder.updateExternalIP(ip)
+            }
+            self.ispFetcher.fetch { [weak self] isp in
+                self?.menuBuilder.updateISP(isp)
             }
             AppState.shared.forceRefreshPing()
             AppState.shared.forceRefreshSpeed()
@@ -122,6 +127,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menuBuilder.updateAddresses(IPAddressProvider.current())
         externalIPFetcher.fetch { [weak self] ip in
             self?.menuBuilder.updateExternalIP(ip)
+        }
+        ispFetcher.fetch { [weak self] isp in
+            self?.menuBuilder.updateISP(isp)
         }
     }
 

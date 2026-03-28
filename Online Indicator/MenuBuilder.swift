@@ -24,6 +24,7 @@ final class MenuBuilder: NSObject {
     private(set) var lastGateway:    String?
     private(set) var lastDNSServers: [String] = []
     private(set) var lastExternalIP: String?
+    private var lastISP: String?
     private var isVPNActive: Bool = false
 
     // MARK: - Callbacks (set by AppDelegate after init)
@@ -310,6 +311,11 @@ final class MenuBuilder: NSObject {
         refreshExternalIPRow()
     }
 
+    func updateISP(_ isp: String?) {
+        lastISP = isp
+        refreshExternalIPRow()
+    }
+
     func updateVPNState(_ active: Bool) {
         isVPNActive = active
         refreshExternalIPRow()
@@ -317,10 +323,14 @@ final class MenuBuilder: NSObject {
 
     private func refreshExternalIPRow() {
         let ip = lastExternalIP
+        var value = ip ?? "Unavailable"
+        if let isp = lastISP, ip != nil {
+            value += "  \(isp)"
+        }
         let str = NSMutableAttributedString(
             attributedString: ipAttributedString(
                 label: "EXT   ",
-                value: ip ?? "Unavailable",
+                value: value,
                 available: ip != nil
             )
         )
