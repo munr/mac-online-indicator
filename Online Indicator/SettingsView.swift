@@ -960,8 +960,7 @@ private struct IconSlotRow: View {
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(Color.primary.opacity(0.28))
 
-                        ColorPicker("", selection: colorBinding, supportsOpacity: false)
-                            .labelsHidden()
+                        PositionedColorPicker(selection: colorBinding)
                             .frame(width: 36, height: 28)
                     }
                     .frame(width: 44)
@@ -1071,5 +1070,86 @@ private struct SettingsRow<Control: View>: View {
         .onTapGesture {
             onTap?()
         }
+    }
+}
+
+// MARK: - Color Panel Positioning
+
+/// NSViewRepresentable that captures its screen frame and installs an NSEvent monitor
+/// to detect clicks on the ColorPicker swatch, then repositions NSColorPanel near it.
+private struct ColorPanelAnchor: NSViewRepresentable {
+    @Binding var screenFrame: CGRect
+    var onWillOpen: () -> Void
+
+    func makeNSView(context: Context) -> AnchorView {
+        AnchorView(onFrame: { screenFrame = $0 }, onWillOpen: onWillOpen)
+    }
+    func updateNSView(_ nsView: AnchorView, context: Context) {
+        nsView.onWillOpen = onWillOpen
+    }
+
+    class AnchorView: NSView {
+        var onFrame: (CGRect) -> Void
+        var onWillOpen: () -> Void
+        private var monitor: Any?
+
+        init(onFrame: @escaping (CGRect) -> Void, onWillOpen: @escaping () -> Void) {
+            self.onFrame = onFrame
+            self.onWillOpen = onWillOpen
+            super.init(frame: .zero)
+        }
+        required init?(coder: NSCoder) { fatalError() }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if window != nil {
+                monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+                    guard let self, let window = self.window else { return event }
+                    let loc = event.locationInWindow
+                    // Expand hit area slightly to reliably cover the color swatch button
+                    let hitArea = self.convert(self.bounds, to: nil).insetBy(dx: -8, dy: -4)
+                    if hitArea.contains(loc) {
+                        // Pre-position synchronously BEFORE the event reaches NSColorWell,
+                        // so the panel opens directly at the right location with no flicker.
+                        self.onWillOpen()
+                    }
+                    return event
+                }
+            } else {
+                if let monitor {
+                    NSEvent.removeMonitor(monitor)
+                    self.monitor = nil
+                }
+            }
+        }
+
+        override func layout() {
+            super.layout()
+            guard let window else { return }
+            onFrame(window.convertToScreen(convert(bounds, to: nil)))
+        }
+    }
+}
+
+/// Wraps SwiftUI ColorPicker and repositions NSColorPanel near the button when opened.
+private struct PositionedColorPicker: View {
+    @Binding var selection: Color
+    @State private var anchorFrame: CGRect = .zero
+
+    var body: some View {
+        ColorPicker("", selection: $selection, supportsOpacity: false)
+            .labelsHidden()
+            .background(ColorPanelAnchor(screenFrame: $anchorFrame, onWillOpen: reposition))
+    }
+
+    private func reposition() {
+        let frame = anchorFrame
+        let panel = NSColorPanel.shared
+        // Use last-known panel width; fall back to default if panel has never been shown.
+        let panelWidth = panel.frame.width > 0 ? panel.frame.width : 224
+        panel.setFrameTopLeftPoint(NSPoint(
+            x: frame.midX - panelWidth / 2,
+            y: frame.minY
+        ))
     }
 }
