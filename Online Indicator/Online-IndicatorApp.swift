@@ -25,6 +25,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var currentStatus: AppState.ConnectionStatus = .noNetwork
     private var menuRefreshTimer: Timer?
+    private var lastKnownWifiName: String? = nil
 
     // MARK: - Lifecycle
 
@@ -133,7 +134,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - NSMenuDelegate
 
     func menuWillOpen(_ menu: NSMenu) {
-        menuBuilder.updateAddresses(IPAddressProvider.current())
+        let addresses = IPAddressProvider.current()
+        handleWifiTransition(newWifiName: addresses.wifiName)
+        menuBuilder.updateAddresses(addresses)
         externalIPFetcher.fetch { [weak self] ip in
             self?.menuBuilder.updateExternalIP(ip)
         }
@@ -143,10 +146,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menuRefreshTimer?.invalidate()
         let timer = Timer(timeInterval: 5, repeats: true) { [weak self] _ in
             guard let self else { return }
-            self.menuBuilder.updateAddresses(IPAddressProvider.current())
+            let addresses = IPAddressProvider.current()
+            self.handleWifiTransition(newWifiName: addresses.wifiName)
+            self.menuBuilder.updateAddresses(addresses)
         }
         RunLoop.main.add(timer, forMode: .common)
         menuRefreshTimer = timer
+    }
+
+    /// Detects when WiFi drops and immediately clears stale EXT/ISP values.
+    private func handleWifiTransition(newWifiName: String?) {
+        if lastKnownWifiName != nil && newWifiName == nil {
+            externalIPFetcher.invalidateCache()
+            ispFetcher.invalidateCache()
+            menuBuilder.updateExternalIP(nil)
+            menuBuilder.updateISP(nil)
+        }
+        lastKnownWifiName = newWifiName
     }
 
     func menuDidClose(_ menu: NSMenu) {
