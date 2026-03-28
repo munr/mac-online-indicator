@@ -133,10 +133,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.menuBuilder.updateISP(isp)
         }
         menuRefreshTimer?.invalidate()
-        menuRefreshTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 5, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.menuBuilder.updateAddresses(IPAddressProvider.current())
         }
+        RunLoop.main.add(timer, forMode: .common)
+        menuRefreshTimer = timer
     }
 
     func menuDidClose(_ menu: NSMenu) {
