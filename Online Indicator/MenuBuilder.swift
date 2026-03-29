@@ -28,6 +28,12 @@ final class MenuBuilder: NSObject {
     private var lastISP: String?
     private var isVPNActive: Bool = false
 
+    /// Tracks the DNS server list that is currently rendered as menu items.
+    /// Separate from `lastDNSServers` (used for copy) so the guard in
+    /// `refreshDNSItems` can detect real changes and avoid structural menu
+    /// mutations (remove + reinsert) that corrupt AppKit's highlight tracking.
+    private var renderedDNSServers: [String] = []
+
     // MARK: - Callbacks (set by AppDelegate after init)
 
     var onCopyIPv4:      ((String) -> Void)?
@@ -181,6 +187,11 @@ final class MenuBuilder: NSObject {
     private func refreshDNSItems(servers: [String]) {
         guard let menu else { return }
 
+        // Avoid removing/reinserting items when the list hasn't changed — structural
+        // mutations while the menu is open corrupt AppKit's highlight-tracking index,
+        // causing the selection to visually jump (e.g. from Quit to PING/SPEED).
+        guard servers != renderedDNSServers else { return }
+
         // Find the index of the first existing DNS item
         guard let firstIndex = menu.items.firstIndex(where: { $0.tag == dnsTag }) else { return }
 
@@ -208,6 +219,8 @@ final class MenuBuilder: NSObject {
                 menu.insertItem(item, at: firstIndex + i)
             }
         }
+
+        renderedDNSServers = servers
     }
 
     // MARK: - Speed Reset
