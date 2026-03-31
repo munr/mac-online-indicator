@@ -24,7 +24,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let ispFetcher        = CachedFetcher.isp
 
     private var currentStatus: AppState.ConnectionStatus = .noNetwork
-    private var menuRefreshTimer: Timer?
     private var lastKnownWifiName: String? = nil
 
     // MARK: - Lifecycle
@@ -86,6 +85,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             AppState.shared.forceRefreshSpeed()
         }
 
+        AppState.shared.networkAddressesChangedHandler = { [weak self] in
+            guard let self else { return }
+            self.updateMenuAddresses(IPAddressProvider.current())
+        }
+
         AppState.shared.start()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -129,16 +133,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - NSMenuDelegate
 
     func menuWillOpen(_ menu: NSMenu) {
-        let addresses = IPAddressProvider.current()
-        updateMenuAddresses(addresses)
+        updateMenuAddresses(IPAddressProvider.current())
         fetchExternalData()
-        menuRefreshTimer?.invalidate()
-        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            self.updateMenuAddresses(IPAddressProvider.current())
-        }
-        RunLoop.main.add(timer, forMode: .common)
-        menuRefreshTimer = timer
     }
 
     /// Updates address rows, clearing everything when there is no real connectivity
@@ -152,11 +148,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         lastKnownWifiName = addresses.wifiName
         menuBuilder.updateAddresses(hasConnectivity ? addresses : IPAddressProvider.Addresses())
-    }
-
-    func menuDidClose(_ menu: NSMenu) {
-        menuRefreshTimer?.invalidate()
-        menuRefreshTimer = nil
     }
 
     // MARK: - External data helpers
