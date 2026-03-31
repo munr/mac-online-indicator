@@ -212,24 +212,20 @@ final class MenuBuilder: NSObject {
             self.copyToPasteboard(self.lastDNSServers.joined(separator: "\n"), callback: self.onCopyDNS)
         }
 
-        if servers.isEmpty {
+        // Map servers to (label, value, available) triples; fall back to a single
+        // "Unavailable" placeholder row when there are no servers.
+        let entries: [(label: String, value: String, available: Bool)] = servers.isEmpty
+            ? [("DNS", unavailable, false)]
+            : servers.enumerated().map { (i, server) in (i == 0 ? "DNS" : "", server, true) }
+
+        for (i, entry) in entries.enumerated() {
             let row = MenuInfoRowView(frame: NSRect(x: 0, y: 0, width: MenuLayout.menuWidth, height: MenuLayout.rowHeight))
-            row.configure(label: "DNS", value: unavailable, available: false)
+            row.configure(label: entry.label, value: entry.value, available: entry.available)
             row.onCopy = copyBlock
             let item = NSMenuItem()
             item.view = row
             item.tag  = dnsTag
-            menu.insertItem(item, at: firstIndex)
-        } else {
-            for (i, server) in servers.enumerated() {
-                let row = MenuInfoRowView(frame: NSRect(x: 0, y: 0, width: MenuLayout.menuWidth, height: MenuLayout.rowHeight))
-                row.configure(label: i == 0 ? "DNS" : "", value: server, available: true)
-                row.onCopy = copyBlock
-                let item = NSMenuItem()
-                item.view = row
-                item.tag  = dnsTag
-                menu.insertItem(item, at: firstIndex + i)
-            }
+            menu.insertItem(item, at: firstIndex + i)
         }
 
         renderedDNSServers = servers
