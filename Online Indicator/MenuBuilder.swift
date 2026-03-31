@@ -276,6 +276,7 @@ final class MenuHeroHeaderView: NSView {
     private let extIPLabel = NSTextField(labelWithString: "")
     private weak var statusDotView: NSView?
     private weak var iconBgView: NSView?
+    private var ringLayer: CAShapeLayer?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -297,10 +298,22 @@ final class MenuHeroHeaderView: NSView {
         iconBg.layer?.backgroundColor = NSColor(
             calibratedRed: 0.10, green: 0.24, blue: 0.22, alpha: 1
         ).cgColor
-        iconBg.layer?.borderWidth = 2
-        iconBg.layer?.borderColor = NSColor.systemGreen.withAlphaComponent(0).cgColor
         addSubview(iconBg)
         iconBgView = iconBg
+
+        // Partial-arc ring layer drawn on top of iconBg, parented to self.layer
+        // so it isn't clipped by iconBg's masksToBounds.
+        // Path is set/updated in layout() once Auto Layout has resolved iconBg.frame.
+        let ring = CAShapeLayer()
+        ring.fillColor   = nil
+        ring.strokeColor = NSColor.systemGreen.cgColor
+        ring.lineWidth   = 2.5
+        ring.lineCap     = .round
+        ring.strokeStart = 0
+        ring.strokeEnd   = 0
+        // Disable all implicit animations on this layer
+        ring.actions = ["strokeEnd": NSNull(), "strokeColor": NSNull(), "path": NSNull()]
+        ringLayer = ring
 
         let iconImageView = NSImageView()
         iconImageView.translatesAutoresizingMaskIntoConstraints = false
@@ -367,6 +380,28 @@ final class MenuHeroHeaderView: NSView {
         nameLabel.stringValue  = Host.current().localizedName ?? "Mac"
         ispLabel.stringValue   = "—"
         extIPLabel.stringValue = "—"
+
+        // Add ring as sublayer of self after wantsLayer = true ensures self.layer exists
+        if let ring = ringLayer { layer?.addSublayer(ring) }
+    }
+
+    override func layout() {
+        super.layout()
+        updateRingPath()
+    }
+
+    private func updateRingPath() {
+        guard let ring = ringLayer, let iconBg = iconBgView else { return }
+        // Slightly outside the circle so the stroke doesn't overlap the icon background
+        let radius = iconBg.frame.width / 2 + 2.5
+        let center = CGPoint(x: iconBg.frame.midX, y: iconBg.frame.midY)
+        let path   = CGMutablePath()
+        // Start at 12 o'clock (π/2 in macOS Y-up coords) and go clockwise
+        path.addArc(center: center, radius: radius,
+                    startAngle: .pi / 2,
+                    endAngle:   .pi / 2 - 2 * .pi,
+                    clockwise:  true)
+        ring.path = path
     }
 
     // MARK: - Updates
@@ -398,25 +433,23 @@ final class MenuHeroHeaderView: NSView {
     }
 
     func updateWiFiStrength(_ rssi: Int?) {
-        let borderColor: CGColor
+        guard let ring = ringLayer else { return }
         if let rssi {
+            // Map RSSI to a 0–1 coverage fraction.
+            // -50 dBm (excellent) → 1.0, -90 dBm (unusable) → 0.0
+            let fraction = CGFloat((Double(rssi) + 90) / 40.0).clamped(to: 0...1)
             let color: NSColor
             switch rssi {
-            case (-50)...: color = .systemGreen
             case (-60)...: color = .systemGreen
             case (-70)...: color = .systemYellow
             case (-80)...: color = .systemOrange
             default:       color = .systemRed
             }
-            borderColor = color.cgColor
+            ring.strokeColor = color.cgColor
+            ring.strokeEnd   = fraction
         } else {
-            borderColor = NSColor.systemGreen.withAlphaComponent(0).cgColor
+            ring.strokeEnd = 0
         }
-        // Disable implicit CALayer animation so the color updates immediately
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        iconBgView?.layer?.borderColor = borderColor
-        CATransaction.commit()
     }
 
     // MARK: - Click → open WiFi settings
@@ -857,6 +890,14 @@ final class MenuFooterView: NSView {
         btn.translatesAutoresizingMaskIntoConstraints = false
         addSubview(btn)
         return btn
+    }
+}
+
+// MARK: - Helpers
+
+private extension Comparable {
+    func clamped(to range: ClosedRange<Self>) -> Self {
+        min(max(self, range.lowerBound), range.upperBound)
     }
 }
 
