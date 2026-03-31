@@ -53,6 +53,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let self else { return }
             self.currentStatus = status
             self.applyIcon(for: status)
+            self.menuBuilder.updateConnectionStatus(status)
             if status == .noNetwork {
                 self.menuBuilder.updateAddresses(IPAddressProvider.Addresses())
                 self.menuBuilder.updateExternalIP(nil)
