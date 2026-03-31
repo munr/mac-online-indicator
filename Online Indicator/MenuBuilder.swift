@@ -171,6 +171,7 @@ final class MenuBuilder: NSObject {
         )
         refreshDNSItems(servers: addresses.dnsServers)
         heroHeaderView?.updateNetwork(name: addresses.wifiName)
+        heroHeaderView?.updateWiFiStrength(addresses.wifiRSSI)
     }
 
     private func refreshDNSItems(servers: [String]) {
@@ -274,6 +275,7 @@ final class MenuHeroHeaderView: NSView {
     private let ispLabel   = NSTextField(labelWithString: "")
     private let extIPLabel = NSTextField(labelWithString: "")
     private weak var statusDotView: NSView?
+    private weak var iconBgView: NSView?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -290,12 +292,15 @@ final class MenuHeroHeaderView: NSView {
         let iconBg = NSView()
         iconBg.wantsLayer = true
         iconBg.translatesAutoresizingMaskIntoConstraints = false
-        iconBg.layer?.cornerRadius  = iconSize / 2
-        iconBg.layer?.masksToBounds = true
+        iconBg.layer?.cornerRadius    = iconSize / 2
+        iconBg.layer?.masksToBounds   = true
         iconBg.layer?.backgroundColor = NSColor(
             calibratedRed: 0.10, green: 0.24, blue: 0.22, alpha: 1
         ).cgColor
+        iconBg.layer?.borderWidth = 2
+        iconBg.layer?.borderColor = NSColor.systemGreen.withAlphaComponent(0).cgColor
         addSubview(iconBg)
+        iconBgView = iconBg
 
         let iconImageView = NSImageView()
         iconImageView.translatesAutoresizingMaskIntoConstraints = false
@@ -390,6 +395,28 @@ final class MenuHeroHeaderView: NSView {
         } else {
             extIPLabel.stringValue = "—"
         }
+    }
+
+    func updateWiFiStrength(_ rssi: Int?) {
+        let borderColor: CGColor
+        if let rssi {
+            let color: NSColor
+            switch rssi {
+            case (-50)...: color = .systemGreen
+            case (-60)...: color = .systemGreen
+            case (-70)...: color = .systemYellow
+            case (-80)...: color = .systemOrange
+            default:       color = .systemRed
+            }
+            borderColor = color.cgColor
+        } else {
+            borderColor = NSColor.systemGreen.withAlphaComponent(0).cgColor
+        }
+        // Disable implicit CALayer animation so the color updates immediately
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        iconBgView?.layer?.borderColor = borderColor
+        CATransaction.commit()
     }
 
     // MARK: - Click → open WiFi settings
