@@ -472,22 +472,14 @@ final class MenuHeroHeaderView: NSView {
     }
 }
 
-// MARK: - MenuStatsBarView
+// MARK: - MenuHoverView
 
-/// Three-column stats bar: DOWN | UP | PING, with fractional auto-layout columns.
-/// Clicking anywhere refreshes speed and ping.
-final class MenuStatsBarView: NSView {
+/// Base class for interactive menu rows that show a selection highlight on hover.
+/// Subclasses inherit the highlight view, tracking area management, and enter/exit
+/// handlers — they only need to add `highlightView` to their layout and handle `mouseDown`.
+private class MenuHoverView: NSView {
 
-    var onRefresh: (() -> Void)?
-
-    private let downValueLabel = NSTextField(labelWithString: noValue)
-    private let downUnitLabel  = NSTextField(labelWithString: "")
-    private let upValueLabel   = NSTextField(labelWithString: noValue)
-    private let upUnitLabel    = NSTextField(labelWithString: "")
-    private let pingValueLabel = NSTextField(labelWithString: noValue)
-    private let pingUnitLabel  = NSTextField(labelWithString: "")
-
-    private let highlightView: NSVisualEffectView = {
+    let highlightView: NSVisualEffectView = {
         let v = NSVisualEffectView()
         v.material         = .selection
         v.state            = .active
@@ -500,6 +492,33 @@ final class MenuStatsBarView: NSView {
     }()
 
     private var trackingArea: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let ta = trackingArea { removeTrackingArea(ta) }
+        let ta = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeAlways], owner: self)
+        addTrackingArea(ta)
+        trackingArea = ta
+    }
+
+    override func mouseEntered(with event: NSEvent) { highlightView.isHidden = false }
+    override func mouseExited(with event: NSEvent)  { highlightView.isHidden = true }
+}
+
+// MARK: - MenuStatsBarView
+
+/// Three-column stats bar: DOWN | UP | PING, with fractional auto-layout columns.
+/// Clicking anywhere refreshes speed and ping.
+final class MenuStatsBarView: MenuHoverView {
+
+    var onRefresh: (() -> Void)?
+
+    private let downValueLabel = NSTextField(labelWithString: noValue)
+    private let downUnitLabel  = NSTextField(labelWithString: "")
+    private let upValueLabel   = NSTextField(labelWithString: noValue)
+    private let upUnitLabel    = NSTextField(labelWithString: "")
+    private let pingValueLabel = NSTextField(labelWithString: noValue)
+    private let pingUnitLabel  = NSTextField(labelWithString: "")
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -688,19 +707,7 @@ final class MenuStatsBarView: NSView {
         }
     }
 
-    // MARK: - Mouse tracking
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let ta = trackingArea { removeTrackingArea(ta) }
-        let ta = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeAlways], owner: self)
-        addTrackingArea(ta)
-        trackingArea = ta
-    }
-
-    override func mouseEntered(with event: NSEvent) { highlightView.isHidden = false }
-    override func mouseExited(with event: NSEvent)  { highlightView.isHidden = true }
-    override func mouseDown(with event: NSEvent)    { onRefresh?() }
+    override func mouseDown(with event: NSEvent) { onRefresh?() }
 }
 
 // MARK: - MenuSectionLabelView
@@ -733,26 +740,12 @@ final class MenuSectionLabelView: NSView {
 
 /// A menu row: left-aligned label (secondary color) + right-aligned monospace
 /// value (primary color). Highlights on hover and fires `onCopy` on click.
-final class MenuInfoRowView: NSView {
+final class MenuInfoRowView: MenuHoverView {
 
     var onCopy: (() -> Void)?
 
     private let labelField = NSTextField(labelWithString: "")
     private let valueField = NSTextField(labelWithString: "")
-
-    private let highlightView: NSVisualEffectView = {
-        let v = NSVisualEffectView()
-        v.material         = .selection
-        v.state            = .active
-        v.isEmphasized     = true
-        v.wantsLayer       = true
-        v.layer?.cornerRadius = 4
-        v.isHidden         = true
-        v.translatesAutoresizingMaskIntoConstraints = false
-        return v
-    }()
-
-    private var trackingArea: NSTrackingArea?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -801,19 +794,7 @@ final class MenuInfoRowView: NSView {
         valueField.textColor   = available ? .labelColor : .tertiaryLabelColor
     }
 
-    // MARK: - Mouse tracking
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let ta = trackingArea { removeTrackingArea(ta) }
-        let ta = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeAlways], owner: self)
-        addTrackingArea(ta)
-        trackingArea = ta
-    }
-
-    override func mouseEntered(with event: NSEvent) { highlightView.isHidden = false }
-    override func mouseExited(with event: NSEvent)  { highlightView.isHidden = true }
-    override func mouseDown(with event: NSEvent)    { onCopy?() }
+    override func mouseDown(with event: NSEvent) { onCopy?() }
 }
 
 // MARK: - MenuFooterView
@@ -949,33 +930,19 @@ private extension Comparable {
 
 /// A single button cell inside `MenuFooterView`. Uses an `NSStackView` to keep
 /// the SF Symbol icon tightly adjacent to the title, with the pair centered.
-private final class MenuFooterButtonView: NSView {
+private final class MenuFooterButtonView: MenuHoverView {
 
     var onTap: (() -> Void)?
-
-    private let highlight: NSVisualEffectView = {
-        let v = NSVisualEffectView()
-        v.material         = .selection
-        v.state            = .active
-        v.isEmphasized     = true
-        v.wantsLayer       = true
-        v.layer?.cornerRadius = 4
-        v.isHidden         = true
-        v.translatesAutoresizingMaskIntoConstraints = false
-        return v
-    }()
-
-    private var trackingArea: NSTrackingArea?
 
     init(symbolName: String, title: String, tintColor: NSColor) {
         super.init(frame: .zero)
 
-        addSubview(highlight)
+        addSubview(highlightView)
         NSLayoutConstraint.activate([
-            highlight.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
-            highlight.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
-            highlight.topAnchor.constraint(equalTo: topAnchor, constant: 2),
-            highlight.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2),
+            highlightView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            highlightView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            highlightView.topAnchor.constraint(equalTo: topAnchor, constant: 2),
+            highlightView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2),
         ])
 
         // SF Symbol image
@@ -1010,15 +977,5 @@ private final class MenuFooterButtonView: NSView {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let ta = trackingArea { removeTrackingArea(ta) }
-        let ta = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeAlways], owner: self)
-        addTrackingArea(ta)
-        trackingArea = ta
-    }
-
-    override func mouseEntered(with event: NSEvent) { highlight.isHidden = false }
-    override func mouseExited(with event: NSEvent)  { highlight.isHidden = true }
-    override func mouseDown(with event: NSEvent)    { onTap?() }
+    override func mouseDown(with event: NSEvent) { onTap?() }
 }
