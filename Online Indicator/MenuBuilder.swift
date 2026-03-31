@@ -4,6 +4,26 @@ import AppKit
 private let noValue      = "—"
 private let unavailable  = "Unavailable"
 
+private enum MenuLayout {
+    static let menuWidth:              CGFloat = 300
+    static let heroIconSize:           CGFloat = 56
+    static let heroLeadingPadding:     CGFloat = 16
+    static let ringStrokeWidth:        CGFloat = 2.5
+    static let highlightCornerRadius:  CGFloat = 4
+    static let rowHeight:              CGFloat = 30
+}
+
+/// RSSI thresholds (dBm) and mapping constants for the WiFi strength ring.
+/// Ring fraction = (rssi + rssiOffset) / rssiRange, clamped to 0…1.
+/// Maps −90 dBm (unusable) → 0.0 and −50 dBm (excellent) → 1.0.
+private enum WiFiThreshold {
+    static let excellent:   Int    = -60
+    static let good:        Int    = -70
+    static let fair:        Int    = -80
+    static let rssiOffset:  Double = 90
+    static let rssiRange:   Double = 40
+}
+
 /// Builds and manages the status bar NSMenu.
 /// The menu uses a card-style layout with a hero header, stats bar, sectioned
 /// network info rows, and a two-button footer. Menu item actions are handled
@@ -49,10 +69,10 @@ final class MenuBuilder: NSObject {
 
     func build() -> NSMenu {
         let m = NSMenu()
-        m.minimumWidth = 300
+        m.minimumWidth = MenuLayout.menuWidth
 
         // 1. Hero header
-        let hero = MenuHeroHeaderView(frame: NSRect(x: 0, y: 0, width: 300, height: 100))
+        let hero = MenuHeroHeaderView(frame: NSRect(x: 0, y: 0, width: MenuLayout.menuWidth, height: 100))
         hero.onOpenWiFiSettings = {
             NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.wifi-settings-extension")!)
         }
@@ -63,7 +83,7 @@ final class MenuBuilder: NSObject {
         m.addItem(heroItem)
 
         // 2. Stats bar
-        let stats = MenuStatsBarView(frame: NSRect(x: 0, y: 0, width: 300, height: 80))
+        let stats = MenuStatsBarView(frame: NSRect(x: 0, y: 0, width: MenuLayout.menuWidth, height: 80))
         stats.onRefresh = { [weak self] in
             self?.onRefreshPing?()
             self?.onRefreshSpeed?()
@@ -77,7 +97,7 @@ final class MenuBuilder: NSObject {
         m.addItem(.separator())
         m.addItem(makeSectionItem(title: "NETWORK"))
 
-        let ipv4Row = MenuInfoRowView(frame: NSRect(x: 0, y: 0, width: 300, height: 30))
+        let ipv4Row = MenuInfoRowView(frame: NSRect(x: 0, y: 0, width: MenuLayout.menuWidth, height: MenuLayout.rowHeight))
         ipv4Row.configure(label: "Internal IPv4", value: noValue, available: false)
         ipv4Row.onCopy = { [weak self] in
             guard let self, let v = self.lastIPv4 else { return }
@@ -88,7 +108,7 @@ final class MenuBuilder: NSObject {
         ipv4Item.view = ipv4Row
         m.addItem(ipv4Item)
 
-        let ipv6Row = MenuInfoRowView(frame: NSRect(x: 0, y: 0, width: 300, height: 30))
+        let ipv6Row = MenuInfoRowView(frame: NSRect(x: 0, y: 0, width: MenuLayout.menuWidth, height: MenuLayout.rowHeight))
         ipv6Row.configure(label: "Internal IPv6", value: noValue, available: false)
         ipv6Row.onCopy = { [weak self] in
             guard let self, let v = self.lastIPv6 else { return }
@@ -103,7 +123,7 @@ final class MenuBuilder: NSObject {
         m.addItem(.separator())
         m.addItem(makeSectionItem(title: "ROUTER"))
 
-        let gwRow = MenuInfoRowView(frame: NSRect(x: 0, y: 0, width: 300, height: 30))
+        let gwRow = MenuInfoRowView(frame: NSRect(x: 0, y: 0, width: MenuLayout.menuWidth, height: MenuLayout.rowHeight))
         gwRow.configure(label: "Gateway", value: noValue, available: false)
         gwRow.onCopy = { [weak self] in
             guard let self, let v = self.lastGateway else { return }
@@ -115,7 +135,7 @@ final class MenuBuilder: NSObject {
         m.addItem(gwItem)
 
         // DNS placeholder row — replaced dynamically; tag = dnsTag
-        let dnsRow = MenuInfoRowView(frame: NSRect(x: 0, y: 0, width: 300, height: 30))
+        let dnsRow = MenuInfoRowView(frame: NSRect(x: 0, y: 0, width: MenuLayout.menuWidth, height: MenuLayout.rowHeight))
         dnsRow.configure(label: "DNS", value: noValue, available: false)
         dnsRow.onCopy = { [weak self] in
             guard let self, !self.lastDNSServers.isEmpty else { return }
@@ -127,7 +147,7 @@ final class MenuBuilder: NSObject {
         m.addItem(dnsItem)
 
         // 5. Footer
-        let footer = MenuFooterView(frame: NSRect(x: 0, y: 0, width: 300, height: 54))
+        let footer = MenuFooterView(frame: NSRect(x: 0, y: 0, width: MenuLayout.menuWidth, height: 54))
         footer.onSettings = { [weak self] in self?.onOpenSettings?() }
         footer.onQuit     = { [weak self] in self?.onQuit?() }
         let footerItem = NSMenuItem()
@@ -141,7 +161,7 @@ final class MenuBuilder: NSObject {
     // MARK: - Section item factory
 
     private func makeSectionItem(title: String) -> NSMenuItem {
-        let view = MenuSectionLabelView(frame: NSRect(x: 0, y: 0, width: 300, height: 28))
+        let view = MenuSectionLabelView(frame: NSRect(x: 0, y: 0, width: MenuLayout.menuWidth, height: 28))
         view.configure(title: title)
         let item = NSMenuItem()
         item.view      = view
@@ -193,7 +213,7 @@ final class MenuBuilder: NSObject {
         }
 
         if servers.isEmpty {
-            let row = MenuInfoRowView(frame: NSRect(x: 0, y: 0, width: 300, height: 30))
+            let row = MenuInfoRowView(frame: NSRect(x: 0, y: 0, width: MenuLayout.menuWidth, height: MenuLayout.rowHeight))
             row.configure(label: "DNS", value: unavailable, available: false)
             row.onCopy = copyBlock
             let item = NSMenuItem()
@@ -202,7 +222,7 @@ final class MenuBuilder: NSObject {
             menu.insertItem(item, at: firstIndex)
         } else {
             for (i, server) in servers.enumerated() {
-                let row = MenuInfoRowView(frame: NSRect(x: 0, y: 0, width: 300, height: 30))
+                let row = MenuInfoRowView(frame: NSRect(x: 0, y: 0, width: MenuLayout.menuWidth, height: MenuLayout.rowHeight))
                 row.configure(label: i == 0 ? "DNS" : "", value: server, available: true)
                 row.onCopy = copyBlock
                 let item = NSMenuItem()
@@ -294,7 +314,7 @@ final class MenuHeroHeaderView: NSView {
         autoresizingMask = .width
 
         // ── Circular icon ──────────────────────────────────────────────────
-        let iconSize: CGFloat = 56
+        let iconSize = MenuLayout.heroIconSize
         let iconBg = NSView()
         iconBg.wantsLayer = true
         iconBg.translatesAutoresizingMaskIntoConstraints = false
@@ -312,7 +332,7 @@ final class MenuHeroHeaderView: NSView {
         let ring = CAShapeLayer()
         ring.fillColor   = nil
         ring.strokeColor = NSColor.systemGreen.cgColor
-        ring.lineWidth   = 2.5
+        ring.lineWidth   = MenuLayout.ringStrokeWidth
         ring.lineCap     = .round
         ring.strokeStart = 0
         ring.strokeEnd   = 0
@@ -362,7 +382,7 @@ final class MenuHeroHeaderView: NSView {
 
         // ── Layout ─────────────────────────────────────────────────────────
         NSLayoutConstraint.activate([
-            iconBg.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            iconBg.leadingAnchor.constraint(equalTo: leadingAnchor, constant: MenuLayout.heroLeadingPadding),
             iconBg.centerYAnchor.constraint(equalTo: centerYAnchor),
             iconBg.widthAnchor.constraint(equalToConstant: iconSize),
             iconBg.heightAnchor.constraint(equalToConstant: iconSize),
@@ -405,7 +425,7 @@ final class MenuHeroHeaderView: NSView {
     private func updateRingPath() {
         guard let ring = ringLayer, let iconBg = iconBgView else { return }
         // Slightly outside the circle so the stroke doesn't overlap the icon background
-        let radius = iconBg.frame.width / 2 + 2.5
+        let radius = iconBg.frame.width / 2 + MenuLayout.ringStrokeWidth
         let center = CGPoint(x: iconBg.frame.midX, y: iconBg.frame.midY)
         let path   = CGMutablePath()
         // Start at 12 o'clock (π/2 in macOS Y-up coords) and go clockwise
@@ -446,13 +466,13 @@ final class MenuHeroHeaderView: NSView {
         if let rssi {
             // Map RSSI to a 0–1 coverage fraction.
             // -50 dBm (excellent) → 1.0, -90 dBm (unusable) → 0.0
-            let fraction = CGFloat((Double(rssi) + 90) / 40.0).clamped(to: 0...1)
+            let fraction = CGFloat((Double(rssi) + WiFiThreshold.rssiOffset) / WiFiThreshold.rssiRange).clamped(to: 0...1)
             let color: NSColor
             switch rssi {
-            case (-60)...: color = .systemGreen
-            case (-70)...: color = .systemYellow
-            case (-80)...: color = .systemOrange
-            default:       color = .systemRed
+            case WiFiThreshold.excellent...: color = .systemGreen
+            case WiFiThreshold.good...:      color = .systemYellow
+            case WiFiThreshold.fair...:      color = .systemOrange
+            default:                         color = .systemRed
             }
             ring.strokeColor = color.cgColor
             ring.strokeEnd   = fraction
@@ -485,7 +505,7 @@ private class MenuHoverView: NSView {
         v.state            = .active
         v.isEmphasized     = true
         v.wantsLayer       = true
-        v.layer?.cornerRadius = 4
+        v.layer?.cornerRadius = MenuLayout.highlightCornerRadius
         v.isHidden         = true
         v.translatesAutoresizingMaskIntoConstraints = false
         return v
@@ -725,7 +745,7 @@ final class MenuSectionLabelView: NSView {
         label.translatesAutoresizingMaskIntoConstraints = false
         addSubview(label)
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: MenuLayout.heroLeadingPadding),
             label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
         ])
     }
@@ -778,11 +798,11 @@ final class MenuInfoRowView: MenuHoverView {
         addSubview(valueField)
 
         NSLayoutConstraint.activate([
-            labelField.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            labelField.leadingAnchor.constraint(equalTo: leadingAnchor, constant: MenuLayout.heroLeadingPadding),
             labelField.centerYAnchor.constraint(equalTo: centerYAnchor),
             labelField.trailingAnchor.constraint(lessThanOrEqualTo: valueField.leadingAnchor, constant: -8),
 
-            valueField.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            valueField.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -MenuLayout.heroLeadingPadding),
             valueField.centerYAnchor.constraint(equalTo: centerYAnchor),
             valueField.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, multiplier: 0.60),
         ])
