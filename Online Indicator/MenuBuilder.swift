@@ -559,20 +559,10 @@ final class MenuStatsBarView: MenuHoverView {
         ])
 
         // Top separator
-        let sep = makeLine()
+        let sep = makeSeparator()
         addSubview(sep)
 
-        // Three hidden "column guide" views — each takes exactly 1/3 of the width.
-        // All content is centered within its column guide.
-        let col1 = makeColumnGuide()
-        let col2 = makeColumnGuide()
-        let col3 = makeColumnGuide()
-        [col1, col2, col3].forEach { addSubview($0) }
-
-        let downHeader  = makeHeaderLabel("DOWN")
-        let upHeader    = makeHeaderLabel("UP")
-        let pingHeader  = makeHeaderLabel("PING")
-
+        // Configure value and unit labels
         configure(downValueLabel,  font: .systemFont(ofSize: 22, weight: .semibold))
         configure(upValueLabel,    font: .systemFont(ofSize: 22, weight: .semibold))
         configure(pingValueLabel,  font: .systemFont(ofSize: 22, weight: .semibold))
@@ -580,13 +570,15 @@ final class MenuStatsBarView: MenuHoverView {
         configure(upUnitLabel,     font: .systemFont(ofSize: 11, weight: .regular), color: .secondaryLabelColor)
         configure(pingUnitLabel,   font: .systemFont(ofSize: 11, weight: .regular), color: .secondaryLabelColor)
 
-        let div1 = makeLine(vertical: true)
-        let div2 = makeLine(vertical: true)
+        // Each column is a vertical stack: header, value, unit — centered horizontally.
+        let col1 = makeColumnStack(header: "DOWN", value: downValueLabel, unit: downUnitLabel)
+        let col2 = makeColumnStack(header: "UP",   value: upValueLabel,   unit: upUnitLabel)
+        let col3 = makeColumnStack(header: "PING", value: pingValueLabel, unit: pingUnitLabel)
 
-        [downHeader, upHeader, pingHeader,
-         downValueLabel, upValueLabel, pingValueLabel,
-         downUnitLabel, upUnitLabel, pingUnitLabel,
-         div1, div2].forEach { addSubview($0) }
+        let div1 = makeSeparator(vertical: true)
+        let div2 = makeSeparator(vertical: true)
+
+        [col1, col2, col3, div1, div2].forEach { addSubview($0) }
 
         NSLayoutConstraint.activate([
             // Top separator
@@ -595,7 +587,7 @@ final class MenuStatsBarView: MenuHoverView {
             sep.topAnchor.constraint(equalTo: topAnchor),
             sep.heightAnchor.constraint(equalToConstant: 1),
 
-            // Column guides — equal thirds pinned to the full width
+            // Three equal columns
             col1.leadingAnchor.constraint(equalTo: leadingAnchor),
             col1.topAnchor.constraint(equalTo: sep.bottomAnchor),
             col1.bottomAnchor.constraint(equalTo: bottomAnchor),
@@ -611,30 +603,6 @@ final class MenuStatsBarView: MenuHoverView {
             col3.bottomAnchor.constraint(equalTo: col1.bottomAnchor),
             col3.trailingAnchor.constraint(equalTo: trailingAnchor),
 
-            // DOWN column
-            downHeader.centerXAnchor.constraint(equalTo: col1.centerXAnchor),
-            downHeader.topAnchor.constraint(equalTo: sep.bottomAnchor, constant: 10),
-            downValueLabel.centerXAnchor.constraint(equalTo: col1.centerXAnchor),
-            downValueLabel.topAnchor.constraint(equalTo: downHeader.bottomAnchor, constant: 2),
-            downUnitLabel.centerXAnchor.constraint(equalTo: col1.centerXAnchor),
-            downUnitLabel.topAnchor.constraint(equalTo: downValueLabel.bottomAnchor, constant: 2),
-
-            // UP column
-            upHeader.centerXAnchor.constraint(equalTo: col2.centerXAnchor),
-            upHeader.topAnchor.constraint(equalTo: downHeader.topAnchor),
-            upValueLabel.centerXAnchor.constraint(equalTo: col2.centerXAnchor),
-            upValueLabel.topAnchor.constraint(equalTo: upHeader.bottomAnchor, constant: 2),
-            upUnitLabel.centerXAnchor.constraint(equalTo: col2.centerXAnchor),
-            upUnitLabel.topAnchor.constraint(equalTo: upValueLabel.bottomAnchor, constant: 2),
-
-            // PING column
-            pingHeader.centerXAnchor.constraint(equalTo: col3.centerXAnchor),
-            pingHeader.topAnchor.constraint(equalTo: downHeader.topAnchor),
-            pingValueLabel.centerXAnchor.constraint(equalTo: col3.centerXAnchor),
-            pingValueLabel.topAnchor.constraint(equalTo: pingHeader.bottomAnchor, constant: 2),
-            pingUnitLabel.centerXAnchor.constraint(equalTo: col3.centerXAnchor),
-            pingUnitLabel.topAnchor.constraint(equalTo: pingValueLabel.bottomAnchor, constant: 2),
-
             // Vertical dividers
             div1.leadingAnchor.constraint(equalTo: col1.trailingAnchor),
             div1.topAnchor.constraint(equalTo: sep.bottomAnchor, constant: 10),
@@ -648,13 +616,21 @@ final class MenuStatsBarView: MenuHoverView {
         ])
     }
 
-    private func makeHeaderLabel(_ text: String) -> NSTextField {
-        let f = NSTextField(labelWithString: text)
-        f.font      = .systemFont(ofSize: 10, weight: .semibold)
-        f.textColor = .secondaryLabelColor
-        f.alignment = .center
-        f.translatesAutoresizingMaskIntoConstraints = false
-        return f
+    /// Returns a vertical NSStackView with the header, value, and unit labels centered.
+    private func makeColumnStack(header: String, value: NSTextField, unit: NSTextField) -> NSStackView {
+        let headerLabel = NSTextField(labelWithString: header)
+        headerLabel.font      = .systemFont(ofSize: 10, weight: .semibold)
+        headerLabel.textColor = .secondaryLabelColor
+        headerLabel.alignment = .center
+        headerLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        let col = NSStackView(views: [headerLabel, value, unit])
+        col.orientation  = .vertical
+        col.alignment    = .centerX
+        col.spacing      = 2
+        col.edgeInsets   = NSEdgeInsets(top: 10, left: 0, bottom: 10, right: 0)
+        col.translatesAutoresizingMaskIntoConstraints = false
+        return col
     }
 
     private func configure(_ field: NSTextField,
@@ -666,13 +642,7 @@ final class MenuStatsBarView: MenuHoverView {
         field.translatesAutoresizingMaskIntoConstraints = false
     }
 
-    private func makeColumnGuide() -> NSView {
-        let v = NSView()
-        v.translatesAutoresizingMaskIntoConstraints = false
-        return v
-    }
-
-    private func makeLine(vertical: Bool = false) -> NSView {
+    private func makeSeparator(vertical: Bool = false) -> NSView {
         let v = NSView()
         v.wantsLayer = true
         v.layer?.backgroundColor = NSColor.separatorColor.cgColor
