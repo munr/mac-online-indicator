@@ -914,8 +914,9 @@ private extension Comparable {
     }
 }
 
-/// A single button cell inside `MenuFooterView`. Uses an `NSStackView` to keep
-/// the SF Symbol icon tightly adjacent to the title, with the pair centered.
+/// A single button cell inside `MenuFooterView`. The icon is embedded as an
+/// `NSTextAttachment` in the label's attributed string so it baseline-aligns
+/// with the text automatically, avoiding SF Symbol template whitespace issues.
 private final class MenuFooterButtonView: MenuHoverView {
 
     var onTap: (() -> Void)?
@@ -931,33 +932,42 @@ private final class MenuFooterButtonView: MenuHoverView {
             highlightView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2),
         ])
 
-        // SF Symbol image
-        let symConfig  = NSImage.SymbolConfiguration(pointSize: 13, weight: .regular)
-        let imageView  = NSImageView()
-        imageView.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
-                            .withSymbolConfiguration(symConfig)
-        imageView.contentTintColor = tintColor
-        imageView.setContentHuggingPriority(.defaultHigh, for: .horizontal)
-        imageView.translatesAutoresizingMaskIntoConstraints = false
+        let font = NSFont.systemFont(ofSize: 13)
 
-        // Title label
-        let label = NSTextField(labelWithString: title)
-        label.font      = .systemFont(ofSize: 13)
-        label.textColor = tintColor
-        label.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+        // Render the SF Symbol at the target size and tint it via sourceAtop compositing.
+        let symConfig = NSImage.SymbolConfiguration(pointSize: 13, weight: .regular)
+        let iconSize: CGFloat = 13
+        let tintedIcon: NSImage? = NSImage(systemSymbolName: symbolName,
+                                           accessibilityDescription: nil)?
+            .withSymbolConfiguration(symConfig)
+            .map { src in
+                NSImage(size: src.size, flipped: false) { rect in
+                    src.draw(in: rect)
+                    tintColor.setFill()
+                    rect.fill(using: .sourceAtop)
+                    return true
+                }
+            }
+
+        // Embed the icon as a text attachment so it sits on the same baseline as the title.
+        // The bounds offset centers it on the font's cap height.
+        let attachment = NSTextAttachment()
+        attachment.image = tintedIcon
+        attachment.bounds = CGRect(x: 0, y: (font.capHeight - iconSize) / 2,
+                                   width: iconSize, height: iconSize)
+
+        let str = NSMutableAttributedString(attachment: attachment)
+        str.append(NSAttributedString(string: " \(title)",
+                                      attributes: [.font: font, .foregroundColor: tintColor]))
+
+        let label = NSTextField(labelWithString: "")
+        label.attributedStringValue = str
         label.translatesAutoresizingMaskIntoConstraints = false
-
-        // Stack keeps icon hugging the title; the stack itself is centered
-        let stack = NSStackView(views: [imageView, label])
-        stack.orientation        = .horizontal
-        stack.spacing            = 5
-        stack.alignment          = .centerY
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(stack)
+        addSubview(label)
 
         NSLayoutConstraint.activate([
-            stack.centerXAnchor.constraint(equalTo: centerXAnchor),
-            stack.centerYAnchor.constraint(equalTo: centerYAnchor),
+            label.centerXAnchor.constraint(equalTo: centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
     }
 
