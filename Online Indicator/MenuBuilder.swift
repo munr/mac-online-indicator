@@ -331,7 +331,6 @@ final class MenuHeroHeaderView: NSView {
         // Path is set/updated in layout() once Auto Layout has resolved iconBg.frame.
         let ring = CAShapeLayer()
         ring.fillColor   = nil
-        ring.strokeColor = NSColor.systemGreen.cgColor
         ring.lineWidth   = MenuLayout.ringStrokeWidth
         ring.lineCap     = .round
         ring.strokeStart = 0
@@ -424,6 +423,7 @@ final class MenuHeroHeaderView: NSView {
 
     private func updateRingPath() {
         guard let ring = ringLayer, let iconBg = iconBgView else { return }
+        guard iconBg.frame.width > 0 else { return }
         // Slightly outside the circle so the stroke doesn't overlap the icon background
         let radius = iconBg.frame.width / 2 + MenuLayout.ringStrokeWidth
         let center = CGPoint(x: iconBg.frame.midX, y: iconBg.frame.midY)
