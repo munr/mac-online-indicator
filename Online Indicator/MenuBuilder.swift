@@ -907,6 +907,8 @@ final class MenuFooterView: NSView {
 /// A small pill-shaped badge displaying "VPN" in system blue.
 private final class VPNBadgeView: NSView {
 
+    private var cornerRadiusSet = false
+
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
@@ -931,7 +933,9 @@ private final class VPNBadgeView: NSView {
 
     override func layout() {
         super.layout()
+        guard !cornerRadiusSet, bounds.height > 0 else { return }
         layer?.cornerRadius = bounds.height / 2
+        cornerRadiusSet = true
     }
 }
 
