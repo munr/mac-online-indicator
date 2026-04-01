@@ -162,7 +162,7 @@ struct SettingsView: View {
                     }
                 }
 
-                SettingsSection(title: "Appearance") {
+                SettingsSection(title: "Menu Bar Icon") {
                     SettingsRow(
                         icon: "square.grid.2x2.fill",
                         iconColor: .purple,
