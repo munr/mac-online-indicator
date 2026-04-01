@@ -12,10 +12,6 @@ extension UserDefaults {
         case lastUpdateNotes    = "lastUpdateNotes"
         case lastUpdateDownload = "lastUpdateDownload"
         case lastUpdatePage     = "lastUpdatePage"
-        // VPN detection
-        case showVPNBadge       = "showVPNBadge"
-        // Menu display
-        case showWiFiStrength   = "showWiFiStrength"
     }
 
     func string(for key: Key) -> String? { string(forKey: key.rawValue) }

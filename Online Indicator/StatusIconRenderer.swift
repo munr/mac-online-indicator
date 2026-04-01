@@ -39,7 +39,7 @@ struct StatusIconRenderer {
         guard let base = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
             .withSymbolConfiguration(config) else { return nil }
 
-        let showBadge = isVPNActive && UserDefaults.standard.bool(for: .showVPNBadge, default: true)
+        let showBadge = isVPNActive
         let tinted = showBadge ? compositeVPNBadge(onto: base) : base
 
         let toolTip: String

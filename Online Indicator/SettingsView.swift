@@ -35,8 +35,6 @@ struct SettingsView: View {
     @State private var showCopiedToast   = false
     @State private var copiedSymbolName  = ""
 
-    @AppStorage("showVPNBadge")     private var showVPNBadge     = true
-    @AppStorage("showWiFiStrength") private var showWiFiStrength = true
 
     @StateObject private var userSetsStore      = UserIconSetsStore()
     @State private var showSaveSetPanel         = false
@@ -645,34 +643,6 @@ struct SettingsView: View {
                     }
                 }
 
-                SettingsSection(title: "VPN") {
-                    SettingsRow(
-                        icon: "lock.shield.fill",
-                        iconColor: .blue,
-                        title: "Show VPN Badge",
-                        subtitle: "Overlay a badge on the menu bar icon when a VPN tunnel is active",
-                        onTap: { showVPNBadge.toggle() }
-                    ) {
-                        Toggle("", isOn: $showVPNBadge)
-                            .labelsHidden()
-                            .onChange(of: showVPNBadge) { _, _ in
-                                NotificationCenter.default.post(name: .iconPreferencesChanged, object: nil)
-                            }
-                    }
-                }
-
-                SettingsSection(title: "Menu") {
-                    SettingsRow(
-                        icon: "wifi",
-                        iconColor: .blue,
-                        title: "Show Wi-Fi Signal Strength",
-                        subtitle: "Display a signal strength indicator next to the Wi-Fi network name",
-                        onTap: { showWiFiStrength.toggle() }
-                    ) {
-                        Toggle("", isOn: $showWiFiStrength)
-                            .labelsHidden()
-                    }
-                }
 
                 footerView
             }
