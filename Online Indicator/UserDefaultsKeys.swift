@@ -11,6 +11,12 @@ extension UserDefaults {
         case lastUpdateNotes    = "lastUpdateNotes"
         case lastUpdateDownload = "lastUpdateDownload"
         case lastUpdatePage     = "lastUpdatePage"
+        // Icon preferences — composite keys built as "<prefix>.<statusKey>" by IconPreferences.
+        // The per-status suffix ("connected", "blocked", "noNetwork") is appended at runtime.
+        case iconSymbolPrefix       = "iconSymbol"
+        case iconColorPrefix        = "iconColor"
+        case iconLabelPrefix        = "iconLabel"
+        case iconLabelEnabledPrefix = "iconLabelEnabled"
     }
 
     func string(for key: Key) -> String? { string(forKey: key.rawValue) }

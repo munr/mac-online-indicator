@@ -18,11 +18,7 @@ struct IconPreferences {
     // MARK: - Read
 
     static func slot(for status: AppState.ConnectionStatus) -> Slot {
-        switch status {
-        case .connected: return load(key: "connected",  fallback: .defaultConnected)
-        case .blocked:   return load(key: "blocked",    fallback: .defaultBlocked)
-        case .noNetwork: return load(key: "noNetwork",  fallback: .defaultNoNetwork)
-        }
+        load(key: storageSuffix(for: status), fallback: defaultSlot(for: status))
     }
 
     static func defaultSlot(for status: AppState.ConnectionStatus) -> Slot {
@@ -36,11 +32,11 @@ struct IconPreferences {
     // MARK: - Write
 
     static func save(_ slot: Slot, for status: AppState.ConnectionStatus) {
-        let key = storageKey(for: status)
-        UserDefaults.standard.set(slot.symbolName,       forKey: "iconSymbol.\(key)")
-        UserDefaults.standard.set(slot.menuLabel,        forKey: "iconLabel.\(key)")
-        UserDefaults.standard.set(slot.menuLabelEnabled, forKey: "iconLabelEnabled.\(key)")
-        saveColor(slot.color, forKey: "iconColor.\(key)")
+        let suffix = storageSuffix(for: status)
+        UserDefaults.standard.set(slot.symbolName,       forKey: compositeKey(.iconSymbolPrefix,       suffix: suffix))
+        UserDefaults.standard.set(slot.menuLabel,        forKey: compositeKey(.iconLabelPrefix,        suffix: suffix))
+        UserDefaults.standard.set(slot.menuLabelEnabled, forKey: compositeKey(.iconLabelEnabledPrefix, suffix: suffix))
+        saveColor(slot.color, forKey: compositeKey(.iconColorPrefix, suffix: suffix))
 
         NotificationCenter.default.post(name: .iconPreferencesChanged, object: nil)
     }
@@ -49,18 +45,23 @@ struct IconPreferences {
 
     static func resetAll() {
         for status in [AppState.ConnectionStatus.connected, .blocked, .noNetwork] {
-            let key = storageKey(for: status)
-            UserDefaults.standard.removeObject(forKey: "iconSymbol.\(key)")
-            UserDefaults.standard.removeObject(forKey: "iconColor.\(key)")
-            UserDefaults.standard.removeObject(forKey: "iconLabel.\(key)")
-            UserDefaults.standard.removeObject(forKey: "iconLabelEnabled.\(key)")
+            let suffix = storageSuffix(for: status)
+            UserDefaults.standard.removeObject(forKey: compositeKey(.iconSymbolPrefix,       suffix: suffix))
+            UserDefaults.standard.removeObject(forKey: compositeKey(.iconColorPrefix,        suffix: suffix))
+            UserDefaults.standard.removeObject(forKey: compositeKey(.iconLabelPrefix,        suffix: suffix))
+            UserDefaults.standard.removeObject(forKey: compositeKey(.iconLabelEnabledPrefix, suffix: suffix))
         }
         NotificationCenter.default.post(name: .iconPreferencesChanged, object: nil)
     }
 
     // MARK: - Helpers
 
-    private static func storageKey(for status: AppState.ConnectionStatus) -> String {
+    /// Builds a composite key from a registered prefix and a per-status suffix.
+    private static func compositeKey(_ prefix: UserDefaults.Key, suffix: String) -> String {
+        "\(prefix.rawValue).\(suffix)"
+    }
+
+    private static func storageSuffix(for status: AppState.ConnectionStatus) -> String {
         switch status {
         case .connected: return "connected"
         case .blocked:   return "blocked"
@@ -69,12 +70,13 @@ struct IconPreferences {
     }
 
     private static func load(key: String, fallback: Slot) -> Slot {
-        let symbol  = UserDefaults.standard.string(forKey: "iconSymbol.\(key)") ?? fallback.symbolName
-        let label   = UserDefaults.standard.string(forKey: "iconLabel.\(key)")  ?? fallback.menuLabel
-        let color   = loadColor(forKey: "iconColor.\(key)") ?? fallback.color
+        let symbol  = UserDefaults.standard.string(forKey: compositeKey(.iconSymbolPrefix,       suffix: key)) ?? fallback.symbolName
+        let label   = UserDefaults.standard.string(forKey: compositeKey(.iconLabelPrefix,        suffix: key)) ?? fallback.menuLabel
+        let color   = loadColor(forKey:             compositeKey(.iconColorPrefix,               suffix: key)) ?? fallback.color
 
-        let enabled = UserDefaults.standard.object(forKey: "iconLabelEnabled.\(key)") != nil
-                      ? UserDefaults.standard.bool(forKey: "iconLabelEnabled.\(key)")
+        let enabledKey = compositeKey(.iconLabelEnabledPrefix, suffix: key)
+        let enabled = UserDefaults.standard.object(forKey: enabledKey) != nil
+                      ? UserDefaults.standard.bool(forKey: enabledKey)
                       : fallback.menuLabelEnabled
         return Slot(symbolName: symbol, color: color, menuLabel: label, menuLabelEnabled: enabled)
     }
