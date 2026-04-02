@@ -95,7 +95,6 @@ final class UpdateChecker {
 
         check { result in
             UserDefaults.standard.set(Date(), for: .lastUpdateCheck)
-            persistResult(result)
             completion(result)
         }
     }
