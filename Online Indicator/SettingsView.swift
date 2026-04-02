@@ -371,6 +371,16 @@ struct SettingsView: View {
         .padding(.bottom, 4)
     }
 
+    // MARK: - Saved feedback helper
+
+    /// Briefly shows a ✓ confirmation by flipping `binding` to true, then back to false after `duration` seconds.
+    private func showSavedFeedback(_ binding: Binding<Bool>, duration: Double = 2) {
+        withAnimation { binding.wrappedValue = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
+            withAnimation { binding.wrappedValue = false }
+        }
+    }
+
     // MARK: - Interval helpers
 
     private func formatInterval(_ v: Double) -> String {
@@ -387,10 +397,7 @@ struct SettingsView: View {
         interval        = value
         UserDefaults.standard.set(value, for: .refreshInterval)
         AppState.shared.restart()
-        withAnimation { intervalSaved = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            withAnimation { intervalSaved = false }
-        }
+        showSavedFeedback($intervalSaved)
     }
 
     // MARK: - Ping URL helpers
@@ -412,19 +419,13 @@ struct SettingsView: View {
         } else {
             UserDefaults.standard.set(trimmed, for: .pingURL)
         }
-        withAnimation { pingURLSaved = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            withAnimation { pingURLSaved = false }
-        }
+        showSavedFeedback($pingURLSaved)
     }
 
     private func restoreDefaultPingURL() {
         UserDefaults.standard.removeObject(for: .pingURL)
         withAnimation { pingURL = "" }
-        withAnimation { pingURLSaved = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            withAnimation { pingURLSaved = false }
-        }
+        showSavedFeedback($pingURLSaved)
     }
 
     // MARK: - Update helpers
