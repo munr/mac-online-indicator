@@ -315,9 +315,7 @@ final class MenuHeroHeaderView: NSView {
         iconBg.translatesAutoresizingMaskIntoConstraints = false
         iconBg.layer?.cornerRadius    = iconSize / 2
         iconBg.layer?.masksToBounds   = true
-        iconBg.layer?.backgroundColor = NSColor(
-            calibratedRed: 0.10, green: 0.24, blue: 0.22, alpha: 1
-        ).cgColor
+        iconBg.layer?.backgroundColor = NSColor(named: "HeroIconBackground")?.cgColor
         addSubview(iconBg)
         iconBgView = iconBg
 
@@ -341,7 +339,7 @@ final class MenuHeroHeaderView: NSView {
         iconImageView.image         = NSImage(systemSymbolName: "antenna.radiowaves.left.and.right",
                                               accessibilityDescription: nil)?
                                         .withSymbolConfiguration(symConfig)
-        iconImageView.contentTintColor = NSColor(calibratedRed: 0.27, green: 0.76, blue: 0.60, alpha: 1)
+        iconImageView.contentTintColor = NSColor(named: "HeroIconTint")
         iconBg.addSubview(iconImageView)
 
         // ── Status dot ─────────────────────────────────────────────────────
@@ -414,6 +412,11 @@ final class MenuHeroHeaderView: NSView {
     override func layout() {
         super.layout()
         updateRingPath()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        iconBgView?.layer?.backgroundColor = NSColor(named: "HeroIconBackground")?.cgColor
     }
 
     private func updateRingPath() {
