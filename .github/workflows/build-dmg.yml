@@ -62,6 +62,7 @@ jobs:
       - name: Upload DMG to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          name: "Online Indicator ${{ github.ref_name }}"
           files: "OnlineIndicator-${{ github.ref_name }}.dmg"
 
       # Regenerates appcast/appcast.xml on main using Sparkle’s generate_appcast.
