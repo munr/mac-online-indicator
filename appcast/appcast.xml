@@ -12,5 +12,13 @@
             <sparkle:minimumSystemVersion>14.6</sparkle:minimumSystemVersion>
             <enclosure url="https://github.com/munr/mac-online-indicator/releases/download/v1.5.2/OnlineIndicator-v1.5.2.dmg" length="3690146" type="application/octet-stream"/>
         </item>
+        <item>
+            <title>1.5.3</title>
+            <pubDate>Sat, 04 Apr 2026 18:30:48 +0000</pubDate>
+            <sparkle:version>dc663a2</sparkle:version>
+            <sparkle:shortVersionString>1.5.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.6</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/munr/mac-online-indicator/releases/download/v1.5.3/OnlineIndicator-v1.5.3.dmg" length="3692749" type="application/octet-stream" sparkle:edSignature="USXY/UvXIDiVRKdmlpyThhmutEqFZWF1dO/adMA72MHd1RTyQL3ZDAJlXfo24FHP4DbVU2BFmCuEo4KHQ5SJBA=="/>
+        </item>
     </channel>
 </rss>
