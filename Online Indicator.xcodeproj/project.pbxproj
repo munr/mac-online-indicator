@@ -143,7 +143,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "#!/bin/bash\nset -e\n\necho \"========== VERSION SCRIPT START ==========\"\n\nif [ -d \"$SRCROOT/.git\" ]; then\n\n    gitHash=$(git rev-parse --short HEAD)\n    echo \"Git hash: $gitHash\"\n\n    /usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $gitHash\" \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\" 2>/dev/null \\\n    || /usr/libexec/PlistBuddy -c \"Add :CFBundleVersion string $gitHash\" \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n\n    echo \"Updated CFBundleVersion:\"\n    /usr/libexec/PlistBuddy -c \"Print :CFBundleVersion\" \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n\nelse\n    echo \"ERROR: .git folder not found\"\n    exit 1\nfi\n\necho \"========== VERSION SCRIPT END ==========\"\n";
+			shellScript = "#!/bin/bash\nset -e\n\necho \"========== VERSION SCRIPT START ==========\"\n\nVERSION=\"${MARKETING_VERSION}\"\nif [ -z \"$VERSION\" ]; then\n    echo \"ERROR: MARKETING_VERSION is not set\"\n    exit 1\nfi\necho \"Setting CFBundleVersion to: $VERSION\"\n\n/usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $VERSION\" \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\" 2>/dev/null \\\n|| /usr/libexec/PlistBuddy -c \"Add :CFBundleVersion string $VERSION\" \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n\necho \"Updated CFBundleVersion:\"\n/usr/libexec/PlistBuddy -c \"Print :CFBundleVersion\" \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n\necho \"========== VERSION SCRIPT END ==========\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

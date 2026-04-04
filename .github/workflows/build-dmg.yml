@@ -33,7 +33,8 @@ jobs:
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGN_STYLE=Manual \
             PROVISIONING_PROFILE_SPECIFIER="" \
-            MARKETING_VERSION=${{ env.APP_VERSION }}
+            MARKETING_VERSION=${{ env.APP_VERSION }} \
+            CURRENT_PROJECT_VERSION=${{ env.APP_VERSION }}
 
       - name: Extract App from Archive
         run: |
