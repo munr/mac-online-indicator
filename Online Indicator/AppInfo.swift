@@ -15,8 +15,8 @@ struct AppInfo {
     }
 
     static var fullVersionString: String {
-        let hash = commitHash.isEmpty ? "" : " · \(commitHash)"
-        return "v \(marketingVersion) (\(buildVersion)\(hash))"
+        let hash = commitHash.isEmpty ? "" : " (\(commitHash))"
+        return "v\(marketingVersion)\(hash)"
     }
 
     static var appName: String {
