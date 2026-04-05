@@ -3,7 +3,7 @@ name: Feature request
 about: Suggest an idea for Online Indicator
 title: "[Feature Request] "
 labels: feature request
-assignees: bornexplorer
+assignees: munr
 
 ---
 
