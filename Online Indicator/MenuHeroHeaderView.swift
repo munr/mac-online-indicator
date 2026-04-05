@@ -72,21 +72,38 @@ final class MenuHeroHeaderView: NSView {
         nameLabel.font      = .systemFont(ofSize: 15, weight: .bold)
         nameLabel.textColor = .labelColor
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(nameLabel)
 
         ispLabel.font      = .systemFont(ofSize: 12, weight: .regular)
         ispLabel.textColor = .secondaryLabelColor
         ispLabel.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(ispLabel)
 
         extIPLabel.font      = .systemFont(ofSize: 12, weight: .regular)
         extIPLabel.textColor = .secondaryLabelColor
         extIPLabel.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(extIPLabel)
 
         vpnBadgeView.isHidden = true
         vpnBadgeView.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(vpnBadgeView)
+
+        // ── Text + dot row ─────────────────────────────────────────────────
+        // Row: nameLabel + dot side by side
+        let nameRow = NSStackView(views: [nameLabel, dot])
+        nameRow.orientation = .horizontal
+        nameRow.spacing     = 6
+        nameRow.alignment   = .centerY
+
+        // The VPN badge sits on the same row as extIPLabel
+        let ipRow = NSStackView(views: [extIPLabel, vpnBadgeView])
+        ipRow.orientation = .horizontal
+        ipRow.spacing     = 6
+        ipRow.alignment   = .centerY
+
+        // Vertical stack of the three rows, centered on the icon
+        let textStack = NSStackView(views: [nameRow, ispLabel, ipRow])
+        textStack.orientation = .vertical
+        textStack.spacing     = 3
+        textStack.alignment   = .leading
+        textStack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(textStack)
 
         // ── Layout ─────────────────────────────────────────────────────────
         NSLayoutConstraint.activate([
@@ -98,23 +115,12 @@ final class MenuHeroHeaderView: NSView {
             iconImageView.centerXAnchor.constraint(equalTo: iconBg.centerXAnchor),
             iconImageView.centerYAnchor.constraint(equalTo: iconBg.centerYAnchor),
 
-            // Name + dot sit on the same baseline
-            nameLabel.leadingAnchor.constraint(equalTo: iconBg.trailingAnchor, constant: 14),
-            nameLabel.topAnchor.constraint(equalTo: iconBg.topAnchor, constant: 6),
-
-            dot.leadingAnchor.constraint(equalTo: nameLabel.trailingAnchor, constant: 6),
-            dot.centerYAnchor.constraint(equalTo: nameLabel.centerYAnchor, constant: -1),
             dot.widthAnchor.constraint(equalToConstant: 9),
             dot.heightAnchor.constraint(equalToConstant: 9),
 
-            ispLabel.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
-            ispLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 4),
-
-            extIPLabel.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
-            extIPLabel.topAnchor.constraint(equalTo: ispLabel.bottomAnchor, constant: 3),
-
-            vpnBadgeView.leadingAnchor.constraint(equalTo: extIPLabel.trailingAnchor, constant: 6),
-            vpnBadgeView.centerYAnchor.constraint(equalTo: extIPLabel.centerYAnchor),
+            textStack.leadingAnchor.constraint(equalTo: iconBg.trailingAnchor, constant: 14),
+            textStack.centerYAnchor.constraint(equalTo: iconBg.centerYAnchor),
+            textStack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -14),
         ])
 
         nameLabel.stringValue  = Host.current().localizedName ?? "Mac"
