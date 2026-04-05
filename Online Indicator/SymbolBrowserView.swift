@@ -27,8 +27,6 @@ struct IconSet: Identifiable {
 
 let iconSets: [IconSet] = [
     IconSet(name: "WiFi",    connectedSymbol: "wifi",                              blockedSymbol: "wifi",                             noNetworkSymbol: "wifi.slash"),
-    IconSet(name: "Status",  connectedSymbol: "checkmark.circle.fill",             blockedSymbol: "exclamationmark.circle.fill",       noNetworkSymbol: "xmark.circle.fill"),
-    IconSet(name: "Shield",  connectedSymbol: "checkmark.shield.fill",             blockedSymbol: "exclamationmark.shield.fill",       noNetworkSymbol: "xmark.shield.fill"),
     IconSet(name: "Lock",    connectedSymbol: "lock.open.fill",                    blockedSymbol: "lock.fill",                        noNetworkSymbol: "lock.slash"),
     IconSet(name: "Bolt",    connectedSymbol: "bolt.fill",                         blockedSymbol: "bolt.fill",                        noNetworkSymbol: "bolt.slash"),
     IconSet(name: "Signals", connectedSymbol: "antenna.radiowaves.left.and.right", blockedSymbol: "dot.radiowaves.left.and.right",     noNetworkSymbol: "wifi.slash"),
