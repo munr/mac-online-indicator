@@ -36,7 +36,7 @@ final class MenuFooterView: NSView {
         let quitBtn = makeFooterButton(
             symbolName: "rectangle.portrait.and.arrow.right",
             title: "Quit",
-            tintColor: .systemRed,
+            tintColor: .white,
             action: { [weak self] in self?.onQuit?() }
         )
 
