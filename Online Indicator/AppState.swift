@@ -144,6 +144,7 @@ final class AppState {
         networkAddressesChangedHandler?(addresses)
 
         if !networkMonitor.isConnected {
+            connectivityChecker.cancelPending()
             statusUpdateHandler?(.noNetwork, addresses)
             return
         }
