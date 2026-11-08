@@ -29,8 +29,8 @@ struct SettingsView: View {
     @State private var showIconSetPicker = false
     @State private var selectedIconSetID: UUID?
 
-    @AppStorage("showInternalIPv4") private var showInternalIPv4 = true
-    @AppStorage("showInternalIPv6") private var showInternalIPv6 = true
+    @AppStorage(UserDefaults.Key.showInternalIPv4.rawValue) private var showInternalIPv4 = true
+    @AppStorage(UserDefaults.Key.showInternalIPv6.rawValue) private var showInternalIPv6 = true
     @AppStorage(UserDefaults.Key.notifyOnStatusChange.rawValue) private var notifyOnStatusChange = false
 
     // MARK: - Icon set helpers
