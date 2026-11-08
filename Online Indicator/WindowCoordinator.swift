@@ -2,11 +2,13 @@ import AppKit
 import SwiftUI
 
 /// Manages the lifecycle of the onboarding and settings windows.
-/// Conforms to NSWindowDelegate to nil-out the settings window reference on close.
+/// Conforms to NSWindowDelegate to nil-out the settings window reference on close and to
+/// start monitoring if onboarding is closed without pressing Start.
 final class WindowCoordinator: NSObject, NSWindowDelegate {
 
     private var onboardingWindow: NSWindow?
     private var settingsWindow: NSWindow?
+    private var onboardingStart: (() -> Void)?
 
     /// Wired by `AppDelegate` to Sparkle’s manual “Check for Updates” action.
     var onCheckForSparkleUpdates: (() -> Void)?
@@ -14,6 +16,7 @@ final class WindowCoordinator: NSObject, NSWindowDelegate {
     // MARK: - Onboarding
 
     func showOnboarding(onStart: @escaping () -> Void) {
+        onboardingStart = onStart
         let view = OnboardingView {
             onStart()
         }
@@ -22,6 +25,7 @@ final class WindowCoordinator: NSObject, NSWindowDelegate {
             styleMask: [.titled, .closable]
         )
         window.titlebarAppearsTransparent = true
+        window.delegate = self
         window.contentView = NSHostingView(rootView: view)
         window.makeKeyAndOrderFront(nil)
         onboardingWindow = window
@@ -29,8 +33,10 @@ final class WindowCoordinator: NSObject, NSWindowDelegate {
     }
 
     func dismissOnboarding() {
-        onboardingWindow?.close()
-        onboardingWindow = nil
+        let window = onboardingWindow
+        onboardingWindow = nil   // cleared first so windowWillClose doesn't treat this as a dismissal
+        onboardingStart = nil
+        window?.close()
     }
 
     // MARK: - Settings
@@ -58,8 +64,18 @@ final class WindowCoordinator: NSObject, NSWindowDelegate {
     // MARK: - NSWindowDelegate
 
     func windowWillClose(_ notification: Notification) {
-        if (notification.object as? NSWindow) === settingsWindow {
+        let window = notification.object as? NSWindow
+        if window === settingsWindow {
             settingsWindow = nil
+        } else if window === onboardingWindow, let start = onboardingStart {
+            // Closed with the red button instead of "Start Monitoring": without this the
+            // app would keep running with no menu bar item. Start with the default interval.
+            if UserDefaults.standard.object(for: .refreshInterval) == nil {
+                UserDefaults.standard.set(30.0, for: .refreshInterval)
+            }
+            onboardingWindow = nil
+            onboardingStart = nil
+            start()
         }
     }
 
