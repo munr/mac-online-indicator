@@ -24,6 +24,7 @@ struct SettingsView: View {
 
     @AppStorage("showInternalIPv4") private var showInternalIPv4 = true
     @AppStorage("showInternalIPv6") private var showInternalIPv6 = true
+    @AppStorage(UserDefaults.Key.notifyOnStatusChange.rawValue) private var notifyOnStatusChange = false
 
     // MARK: - Icon set helpers
 
@@ -129,6 +130,22 @@ struct SettingsView: View {
                 }
 
                 SettingsSection(title: "Monitoring") {
+                    SettingsRow(
+                        icon: "bell.fill",
+                        iconColor: .pink,
+                        title: "Notify on Changes",
+                        subtitle: "Alert when you go offline, come back online, or the VPN drops",
+                        onTap: { notifyOnStatusChange.toggle() }
+                    ) {
+                        Toggle("", isOn: $notifyOnStatusChange)
+                            .labelsHidden()
+                            .onChange(of: notifyOnStatusChange) { _, on in
+                                if on { StatusNotifier.requestAuthorization() }
+                            }
+                    }
+
+                    Divider().padding(.leading, 56)
+
                     SettingsRow(
                         icon: "clock.fill",
                         iconColor: .orange,

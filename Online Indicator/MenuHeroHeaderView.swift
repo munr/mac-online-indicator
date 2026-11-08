@@ -5,6 +5,7 @@ import AppKit
 final class MenuHeroHeaderView: NSView {
 
     var onOpenWiFiSettings: (() -> Void)?
+    var onCopyExternalIP: (() -> Void)?
 
     private let nameLabel    = NSTextField(labelWithString: "")
     private let ispLabel     = NSTextField(labelWithString: "")
@@ -204,7 +205,13 @@ final class MenuHeroHeaderView: NSView {
     // MARK: - Click → open WiFi settings
 
     override func mouseDown(with event: NSEvent) {
-        onOpenWiFiSettings?()
+        // Clicking the external IP copies it; anywhere else opens WiFi settings.
+        let point = convert(event.locationInWindow, from: nil)
+        if extIPLabel.frame.contains(point), extIPLabel.stringValue != menuNoValue {
+            onCopyExternalIP?()
+        } else {
+            onOpenWiFiSettings?()
+        }
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
