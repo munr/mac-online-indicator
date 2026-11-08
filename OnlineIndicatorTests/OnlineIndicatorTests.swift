@@ -128,3 +128,20 @@ final class ConnectionHistoryTests: XCTestCase {
         XCTAssertEqual(ConnectionHistory.duration(3900), "1 h 5 min")
     }
 }
+
+// MARK: - IPAddressProvider
+
+final class IPv6PreferenceTests: XCTestCase {
+
+    func testPrefersGlobalOverLinkLocal() {
+        XCTAssertEqual(IPAddressProvider.preferredIPv6(from: ["fe80::1", "fd7b::2", "2001:db8::3"]), "fd7b::2")
+    }
+
+    func testFallsBackToLinkLocal() {
+        XCTAssertEqual(IPAddressProvider.preferredIPv6(from: ["FE80::1"]), "FE80::1")
+    }
+
+    func testNoAddresses() {
+        XCTAssertNil(IPAddressProvider.preferredIPv6(from: []))
+    }
+}

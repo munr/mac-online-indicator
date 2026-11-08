@@ -61,6 +61,7 @@ struct IPAddressProvider {
                 return a < b
             }
 
+        var ipv6Candidates: [String] = []
         ptr = ifaddr
         while let current = ptr {
             defer { ptr = current.pointee.ifa_next }
@@ -80,7 +81,7 @@ struct IPAddressProvider {
                 result.ipv4 = String(cString: hostname)
             }
 
-            if family == UInt8(AF_INET6), result.ipv6 == nil {
+            if family == UInt8(AF_INET6) {
                 guard getnameinfo(addr,
                                   socklen_t(addr.pointee.sa_len),
                                   &hostname, socklen_t(hostname.count),
@@ -89,11 +90,18 @@ struct IPAddressProvider {
                 if let percent = address.firstIndex(of: "%") {
                     address = String(address[..<percent])
                 }
-                result.ipv6 = address
+                ipv6Candidates.append(address)
             }
         }
+        result.ipv6 = preferredIPv6(from: ipv6Candidates)
 
         return result
+    }
+
+    /// First global address; falls back to a link-local (`fe80::`) one only if that's all there is,
+    /// since getifaddrs lists link-local first and it's rarely what someone wants to copy.
+    static func preferredIPv6(from addresses: [String]) -> String? {
+        addresses.first { !$0.lowercased().hasPrefix("fe80") } ?? addresses.first
     }
 
     // MARK: - Gateway
