@@ -168,7 +168,11 @@ final class MenuBuilder: NSObject {
 
         // 6. Footer
         let footer = MenuFooterView(frame: NSRect(x: 0, y: 0, width: MenuLayout.menuWidth, height: 44))
-        footer.onSettings = { [weak self] in self?.onOpenSettings?() }
+        footer.onSettings = { [weak self] in
+            self?.menu.cancelTracking()
+            // Open after the menu's tracking loop ends, otherwise activation/focus is swallowed.
+            DispatchQueue.main.async { self?.onOpenSettings?() }
+        }
         footer.onQuit     = { [weak self] in self?.onQuit?() }
         let footerItem = NSMenuItem()
         footerItem.view = footer
