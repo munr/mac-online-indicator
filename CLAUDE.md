@@ -115,7 +115,7 @@ All `UserDefaults` keys are defined in `UserDefaultsKeys.swift` as `UserDefaults
 
 ### Tests
 
-`OnlineIndicatorTests/` is a synchronized-folder unit-test target hosted by the app (`@testable import Online_Indicator`); `AppDelegate` returns early from `applicationDidFinishLaunching` when running under XCTest. Console noise about `com.apple.linkd.autoShortcut` is harmless. New code with real logic gets a test here.
+`OnlineIndicatorTests/` is a synchronized-folder unit-test target hosted by the app (`@testable import Online_Indicator`); `AppDelegate` returns early from `applicationDidFinishLaunching` when running under XCTest. Console noise about `com.apple.linkd.autoShortcut` is harmless. New code with real logic gets a test here. `.github/workflows/test.yml` runs the suite on every pull request and push to `main`.
 
 ### Key files
 
