@@ -44,26 +44,22 @@ final class UserDefaultsKeyTests: XCTestCase {
 
 final class ConnectivityCheckerURLTests: XCTestCase {
 
-    func testDefaultURLIsValid() {
-        XCTAssertNotNil(URL(string: "http://captive.apple.com"))
+    func testDefaultTargetIsValid() {
+        XCTAssertTrue(ConnectivityChecker.isValidTarget(ConnectivityChecker.defaultURLString))
     }
 
-    func testCustomURLAcceptsHTTPS() {
-        let url = URL(string: "https://example.com")
-        XCTAssertNotNil(url)
-        XCTAssertEqual(url?.scheme, "https")
+    func testAcceptsHTTPS() {
+        XCTAssertTrue(ConnectivityChecker.isValidTarget("https://example.com/health"))
     }
 
-    func testInvalidSchemeRejected() {
-        let url = URL(string: "ftp://example.com")
-        let isValid = url.flatMap { u in
-            u.scheme.map { ["http", "https"].contains($0) }
-        } ?? false
-        XCTAssertFalse(isValid)
+    func testRejectsOtherSchemes() {
+        XCTAssertFalse(ConnectivityChecker.isValidTarget("ftp://example.com"))
     }
 
-    func testEmptyStringProducesNil() {
-        XCTAssertNil(URL(string: ""))
+    func testRejectsMissingSchemeHostOrEmpty() {
+        XCTAssertFalse(ConnectivityChecker.isValidTarget("example.com"))
+        XCTAssertFalse(ConnectivityChecker.isValidTarget("http://"))
+        XCTAssertFalse(ConnectivityChecker.isValidTarget(""))
     }
 }
 

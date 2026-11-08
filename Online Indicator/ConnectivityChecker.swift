@@ -28,6 +28,12 @@ final class ConnectivityChecker {
         raw.split(whereSeparator: { $0 == "," || $0.isWhitespace }).map(String.init)
     }
 
+    /// True for an http(s) URL with a host; the only kind a probe can use.
+    static func isValidTarget(_ target: String) -> Bool {
+        guard let url = URL(string: target), let scheme = url.scheme else { return false }
+        return ["http", "https"].contains(scheme) && url.host != nil
+    }
+
     /// Targets to probe now: the saved list, or the Apple default when none is set.
     static var targets: [String] {
         let saved = parseTargets(UserDefaults.standard.string(for: .pingURL) ?? "")

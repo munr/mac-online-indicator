@@ -388,12 +388,7 @@ struct SettingsView: View {
 
     private func applyPingURL() {
         let targets = ConnectivityChecker.parseTargets(pingURL)
-        let allValid = targets.allSatisfy { target in
-            URL(string: target).flatMap { url in
-                url.scheme.map { ["http", "https"].contains($0) } == true && url.host != nil
-            } ?? false
-        }
-        if !allValid || targets.count > ConnectivityChecker.maxTargets {
+        if !targets.allSatisfy(ConnectivityChecker.isValidTarget) || targets.count > ConnectivityChecker.maxTargets {
             withAnimation { pingURLInvalid = true }
             return
         }
