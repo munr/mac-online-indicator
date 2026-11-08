@@ -40,6 +40,7 @@ final class MenuBuilder: NSObject {
     var onCopyIPv6:    ((String) -> Void)?
     var onCopyGateway: ((String) -> Void)?
     var onCopyDNS:     ((String) -> Void)?
+    var onCopyExternalIP: ((String) -> Void)?
     var onRefreshPing:   (() -> Void)?
     var onRefreshSpeed:  (() -> Void)?
     var onOpenSettings:  (() -> Void)?
@@ -55,6 +56,10 @@ final class MenuBuilder: NSObject {
         let hero = MenuHeroHeaderView(frame: NSRect(x: 0, y: 0, width: MenuLayout.menuWidth, height: 100))
         hero.onOpenWiFiSettings = {
             NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.wifi-settings-extension")!)
+        }
+        hero.onCopyExternalIP = { [weak self] in
+            guard let self, let ip = self.lastExternalIP else { return }
+            self.copyToPasteboard(ip, callback: self.onCopyExternalIP)
         }
         heroHeaderView = hero
         let heroItem = NSMenuItem()

@@ -31,6 +31,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
     private let ispFetcher        = CachedFetcher.isp
 
     private var currentStatus: AppState.ConnectionStatus = .noNetwork
+    private var hasReportedStatus = false
     private var lastKnownWifiName: String? = nil
     private var locationManager: CLLocationManager?
 
@@ -61,6 +62,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
 
         AppState.shared.statusUpdateHandler = { [weak self] status, addresses in
             guard let self else { return }
+            // Skip the first result after launch: it's a baseline, not a change.
+            if self.hasReportedStatus && status != self.currentStatus {
+                StatusNotifier.statusChanged(to: status)
+            }
+            self.hasReportedStatus = true
             self.currentStatus = status
             self.applyIcon(for: status, wifiName: addresses.wifiName, isVPNActive: addresses.isVPNActive)
             self.menuBuilder.updateConnectionStatus(status)
@@ -88,6 +94,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
 
         AppState.shared.vpnStatusChangedHandler = { [weak self] addresses in
             guard let self else { return }
+            if !addresses.isVPNActive { StatusNotifier.vpnDropped() }
             self.menuBuilder.updateVPNState(addresses.isVPNActive)
             self.updateMenuAddresses(addresses)
             self.invalidateExternalCaches()
@@ -126,6 +133,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
         menuBuilder.onCopyIPv6    = { [weak self] _ in self?.showCopiedTooltip(text: "IPv6 Copied") }
         menuBuilder.onCopyGateway = { [weak self] _ in self?.showCopiedTooltip(text: "Gateway Copied") }
         menuBuilder.onCopyDNS     = { [weak self] _ in self?.showCopiedTooltip(text: "DNS Copied") }
+        menuBuilder.onCopyExternalIP = { [weak self] _ in self?.showCopiedTooltip(text: "External IP Copied") }
         menuBuilder.onRefreshPing = { AppState.shared.forceRefreshPing() }
         menuBuilder.onRefreshSpeed = { AppState.shared.forceRefreshSpeed() }
         menuBuilder.onOpenSettings = { [weak self] in self?.windowCoordinator.openSettings() }
