@@ -15,7 +15,7 @@ struct SettingsView: View {
 
     @State private var interval: Double = {
         let v = UserDefaults.standard.double(for: .refreshInterval)
-        return v == 0 ? 60 : v
+        return v == 0 ? 30 : v
     }()
     @State private var intervalText    = ""
     @State private var intervalSaved   = false
@@ -29,8 +29,8 @@ struct SettingsView: View {
     @State private var showIconSetPicker = false
     @State private var selectedIconSetID: UUID?
 
-    @AppStorage("showInternalIPv4") private var showInternalIPv4 = true
-    @AppStorage("showInternalIPv6") private var showInternalIPv6 = true
+    @AppStorage(UserDefaults.Key.showInternalIPv4.rawValue) private var showInternalIPv4 = true
+    @AppStorage(UserDefaults.Key.showInternalIPv6.rawValue) private var showInternalIPv6 = true
     @AppStorage(UserDefaults.Key.notifyOnStatusChange.rawValue) private var notifyOnStatusChange = false
 
     // MARK: - Icon set helpers
@@ -388,12 +388,7 @@ struct SettingsView: View {
 
     private func applyPingURL() {
         let targets = ConnectivityChecker.parseTargets(pingURL)
-        let allValid = targets.allSatisfy { target in
-            URL(string: target).flatMap { url in
-                url.scheme.map { ["http", "https"].contains($0) } == true && url.host != nil
-            } ?? false
-        }
-        if !allValid || targets.count > ConnectivityChecker.maxTargets {
+        if !targets.allSatisfy(ConnectivityChecker.isValidTarget) || targets.count > ConnectivityChecker.maxTargets {
             withAnimation { pingURLInvalid = true }
             return
         }

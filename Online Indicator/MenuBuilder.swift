@@ -31,10 +31,7 @@ final class MenuBuilder: NSObject {
     private(set) var lastGateway:    String?
     private(set) var lastDNSServers: [String] = []
     private(set) var lastExternalIP: String?
-    private var lastISP:             String?
-    private var lastWifiName:        String?
     private var isVPNActive:         Bool = false
-    private var currentStatus:       AppState.ConnectionStatus = .noNetwork
 
     private var renderedDNSServers: [String] = []
 
@@ -238,7 +235,6 @@ final class MenuBuilder: NSObject {
         lastIPv6       = addresses.ipv6
         lastGateway    = addresses.gateway
         lastDNSServers = addresses.dnsServers
-        lastWifiName   = addresses.wifiName
 
         ipv4RowView?.configure(
             label: "Internal IPv4",
@@ -308,7 +304,6 @@ final class MenuBuilder: NSObject {
     // MARK: - Connection Status
 
     func updateConnectionStatus(_ status: AppState.ConnectionStatus) {
-        currentStatus = status
         heroHeaderView?.updateStatus(status)
     }
 
@@ -320,7 +315,6 @@ final class MenuBuilder: NSObject {
     }
 
     func updateISP(_ isp: String?) {
-        lastISP = isp
         heroHeaderView?.updateISP(isp)
     }
 

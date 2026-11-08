@@ -28,6 +28,12 @@ final class ConnectivityChecker {
         raw.split(whereSeparator: { $0 == "," || $0.isWhitespace }).map(String.init)
     }
 
+    /// True for an http(s) URL with a host; the only kind a probe can use.
+    static func isValidTarget(_ target: String) -> Bool {
+        guard let url = URL(string: target), let scheme = url.scheme else { return false }
+        return ["http", "https"].contains(scheme) && url.host != nil
+    }
+
     /// Targets to probe now: the saved list, or the Apple default when none is set.
     static var targets: [String] {
         let saved = parseTargets(UserDefaults.standard.string(for: .pingURL) ?? "")
@@ -70,13 +76,19 @@ final class ConnectivityChecker {
         return URLSession(configuration: configuration)
     }()
 
+    /// Drops any probe still in flight so its late result can't overwrite a newer status.
+    /// Main thread only.
+    func cancelPending() {
+        currentTasks.forEach { $0.cancel() }
+        currentTasks = []
+        generation += 1
+    }
+
     /// Probes every target in parallel. Must be called on the main thread; `completion`
     /// is delivered on the main thread, and not at all if a newer check superseded this one.
     func checkOutboundConnection(completion: @escaping (ProbeResult) -> Void) {
 
-        currentTasks.forEach { $0.cancel() }
-        currentTasks = []
-        generation += 1
+        cancelPending()
         let gen = generation
 
         let targets = Self.targets

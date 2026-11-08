@@ -99,12 +99,16 @@ final class AppState {
 
         refreshTimer?.invalidate()
 
-        refreshTimer = Timer.scheduledTimer(
-            withTimeInterval: refreshInterval,
-            repeats: true
-        ) { [weak self] _ in
+        refreshTimer = Self.commonModeTimer(interval: refreshInterval, repeats: true) { [weak self] in
             self?.checkConnection()
         }
+    }
+
+    /// Scheduled in `.common` modes so it keeps firing while the menu is open (event tracking mode).
+    private static func commonModeTimer(interval: TimeInterval, repeats: Bool, block: @escaping () -> Void) -> Timer {
+        let timer = Timer(timeInterval: interval, repeats: repeats) { _ in block() }
+        RunLoop.main.add(timer, forMode: .common)
+        return timer
     }
 
     // MARK: - Debounce for rapid network changes
@@ -113,10 +117,7 @@ final class AppState {
 
         debounceTimer?.invalidate()
 
-        debounceTimer = Timer.scheduledTimer(
-            withTimeInterval: 1.0,
-            repeats: false
-        ) { [weak self] _ in
+        debounceTimer = Self.commonModeTimer(interval: 1.0, repeats: false) { [weak self] in
             self?.checkConnection()
         }
     }
@@ -144,6 +145,7 @@ final class AppState {
         networkAddressesChangedHandler?(addresses)
 
         if !networkMonitor.isConnected {
+            connectivityChecker.cancelPending()
             statusUpdateHandler?(.noNetwork, addresses)
             return
         }
