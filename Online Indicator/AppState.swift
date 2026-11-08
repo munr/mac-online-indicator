@@ -11,6 +11,7 @@ final class AppState {
     private var refreshTimer: Timer?
     private var debounceTimer: Timer?
     private var lastWifiSSID: String?
+    private var dnsLookupInFlight = false
 
     enum ConnectionStatus {
         case connected
@@ -27,6 +28,10 @@ final class AppState {
     var vpnStatusChangedHandler: ((IPAddressProvider.Addresses) -> Void)?
     /// Called on every connectivity check cycle. Receives the current addresses snapshot.
     var networkAddressesChangedHandler: ((IPAddressProvider.Addresses) -> Void)?
+    /// Called after each probe cycle with per-target results and captive-portal detection.
+    var probeResultHandler: ((ProbeResult) -> Void)?
+    /// Called with the DNS lookup time in ms, or nil if the resolver didn't answer.
+    var dnsLookupHandler: ((Double?) -> Void)?
     var speedSnapshotHandler: ((NetworkSpeedMonitor.Snapshot) -> Void)?
     var speedMeasuringChangedHandler: ((Bool) -> Void)?
     var speedResetHandler: (() -> Void)?
@@ -143,17 +148,29 @@ final class AppState {
             return
         }
 
-        // Attempt outbound request
-        connectivityChecker.checkOutboundConnection { [weak self] reachable, latencyMs in
+        measureDNSLookup()
 
+        // Attempt outbound requests (delivered on the main thread)
+        connectivityChecker.checkOutboundConnection { [weak self] result in
+            self?.probeResultHandler?(result)
+            self?.statusUpdateHandler?(result.reachable ? .connected : .blocked, addresses)
+            if let ms = result.latencyMs {
+                self?.speedMonitor.updatePing(ms)
+            }
+            if ssidChanged && result.reachable {
+                self?.speedMonitor.runNow()
+            }
+        }
+    }
+
+    /// Skipped while a previous lookup is still pending, so a dead resolver can't pile up threads.
+    private func measureDNSLookup() {
+        guard !dnsLookupInFlight else { return }
+        dnsLookupInFlight = true
+        ConnectivityChecker.measureDNSLookup { [weak self] ms in
             DispatchQueue.main.async {
-                self?.statusUpdateHandler?(reachable ? .connected : .blocked, addresses)
-                if let ms = latencyMs {
-                    self?.speedMonitor.updatePing(ms)
-                }
-                if ssidChanged && reachable {
-                    self?.speedMonitor.runNow()
-                }
+                self?.dnsLookupInFlight = false
+                self?.dnsLookupHandler?(ms)
             }
         }
     }

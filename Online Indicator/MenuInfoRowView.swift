@@ -5,6 +5,8 @@ import AppKit
 final class MenuInfoRowView: MenuHoverView {
 
     var onCopy: (() -> Void)?
+    /// Accessibility hint for the click action (defaults to the copy behaviour).
+    var helpText = "Click to copy"
 
     private let labelField = NSTextField(labelWithString: "")
     private let valueField = NSTextField(labelWithString: "")
@@ -36,6 +38,7 @@ final class MenuInfoRowView: MenuHoverView {
         valueField.font      = .monospacedSystemFont(ofSize: 13, weight: .regular)
         valueField.textColor = .labelColor
         valueField.alignment = .right
+        valueField.lineBreakMode = .byTruncatingMiddle
         valueField.translatesAutoresizingMaskIntoConstraints = false
         addSubview(valueField)
 
@@ -63,5 +66,5 @@ final class MenuInfoRowView: MenuHoverView {
 
     override func isAccessibilityElement() -> Bool { true }
     override func accessibilityRole() -> NSAccessibility.Role? { .button }
-    override func accessibilityHelp() -> String? { "Click to copy" }
+    override func accessibilityHelp() -> String? { helpText }
 }
