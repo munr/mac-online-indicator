@@ -3,6 +3,13 @@ import AppKit
 
 struct SettingsView: View {
 
+    private enum Tab: String, CaseIterable, Identifiable {
+        case general = "General", menuBar = "Menu Bar", monitoring = "Monitoring"
+        var id: Self { self }
+    }
+
+    @State private var tab: Tab = .general
+
     /// Invokes Sparkle’s update UI (same as automatic checks, but immediate).
     var checkForSparkleUpdates: () -> Void = {}
 
@@ -52,249 +59,265 @@ struct SettingsView: View {
     // MARK: - Body
 
     var body: some View {
+        VStack(spacing: 0) {
+        Picker("", selection: $tab) {
+            ForEach(Tab.allCases) { Text($0.rawValue).tag($0) }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+
         ScrollView {
             VStack(spacing: 24) {
 
-                SettingsSection(title: "General") {
-                    SettingsRow(
-                        icon: "arrow.clockwise.circle.fill",
-                        iconColor: .red,
-                        title: "Launch at Login",
-                        subtitle: "Opens automatically when your Mac starts up",
-                        onTap: { isLaunchEnabled.toggle() }
-                    ) {
-                        Toggle("", isOn: $isLaunchEnabled)
-                            .labelsHidden()
-                            .onChange(of: isLaunchEnabled) { _, newValue in
-                                if let error = LoginItemManager.shared.setEnabled(newValue) {
-                                    isLaunchEnabled = !newValue
-                                    loginItemError = error.localizedDescription
-                                }
-                            }
-                    }
-
-                    Divider().padding(.leading, 56)
-
-                    SettingsRow(
-                        icon: "arrow.down.circle.fill",
-                        iconColor: .blue,
-                        title: "Software Update",
-                        subtitle: "Current: \(AppInfo.fullVersionString)"
-                    ) {
-                        Button("Check for Updates…") { checkForSparkleUpdates() }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                    }
-                }
-
-                SettingsSection(title: "Menu Bar Icon") {
-                    SettingsRow(
-                        icon: "square.grid.2x2.fill",
-                        iconColor: .purple,
-                        title: "Icon Set",
-                        subtitle: currentIconSetName
-                    ) {
-                        Button("Choose") { showIconSetPicker = true }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                    }
-                    .sheet(isPresented: $showIconSetPicker) {
-                        IconSetPickerView(selectedID: selectedIconSetID) { set in
-                            applyIconSet(set)
-                        }
-                    }
-                }
-
-                SettingsSection(title: "Menu Options") {
-                    SettingsRow(
-                        icon: "network",
-                        iconColor: .blue,
-                        title: "Show Internal IPv4",
-                        subtitle: "Display the internal IPv4 address in the menu",
-                        onTap: { showInternalIPv4.toggle() }
-                    ) {
-                        Toggle("", isOn: $showInternalIPv4).labelsHidden()
-                    }
-
-                    Divider().padding(.leading, 56)
-
-                    SettingsRow(
-                        icon: "network",
-                        iconColor: .indigo,
-                        title: "Show Internal IPv6",
-                        subtitle: "Display the internal IPv6 address in the menu",
-                        onTap: { showInternalIPv6.toggle() }
-                    ) {
-                        Toggle("", isOn: $showInternalIPv6).labelsHidden()
-                    }
-                }
-
-                SettingsSection(title: "Monitoring") {
-                    SettingsRow(
-                        icon: "bell.fill",
-                        iconColor: .pink,
-                        title: "Notify on Changes",
-                        subtitle: "Alert when you go offline, come back online, or the VPN drops",
-                        onTap: { notifyOnStatusChange.toggle() }
-                    ) {
-                        Toggle("", isOn: $notifyOnStatusChange)
-                            .labelsHidden()
-                            .onChange(of: notifyOnStatusChange) { _, on in
-                                if on { StatusNotifier.requestAuthorization() }
-                            }
-                    }
-
-                    Divider().padding(.leading, 56)
-
-                    SettingsRow(
-                        icon: "clock.fill",
-                        iconColor: .orange,
-                        title: "Check Interval",
-                        subtitle: "How often the app checks if you're connected"
-                    ) {
-                        HStack(spacing: 8) {
-                            TextField("", text: $intervalText)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 56)
-                                .multilineTextAlignment(.trailing)
-                                .onChange(of: intervalText) { _, newValue in
-                                    let digitsOnly = newValue.filter { $0.isNumber }
-                                    if digitsOnly != newValue { intervalText = digitsOnly }
-                                    if intervalInvalid { intervalInvalid = false }
-                                }
-
-                            Text("sec")
-                                .foregroundStyle(.secondary)
-                                .font(.system(size: 12))
-
-                            if intervalSaved {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.green)
-                                    .font(.system(size: 16))
-                                    .transition(.scale.combined(with: .opacity))
-                            } else {
-                                Button("Apply") { applyInterval() }
-                                    .buttonStyle(.bordered)
-                                    .controlSize(.small)
-                                    .transition(.opacity.combined(with: .scale))
-                            }
-                        }
-                        .animation(.easeInOut(duration: 0.18), value: intervalSaved)
-                    }
-
-                    if intervalInvalid {
-                        HStack(spacing: 0) {
-                            Spacer().frame(width: 56)
-                            HStack(spacing: 4) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .font(.system(size: 9))
-                                Text("Minimum interval is 30 seconds")
-                                    .font(.system(size: 10))
-                            }
-                            .foregroundStyle(.red)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                            Spacer()
-                        }
-                        .padding(.bottom, 4)
-                        .animation(.easeInOut(duration: 0.18), value: intervalInvalid)
-                    }
-
-                    HStack(spacing: 0) {
-                        Spacer().frame(width: 56)
-                        HStack(spacing: 6) {
-                            ForEach([("30s", 30.0), ("1m", 60.0), ("2m", 120.0), ("5m", 300.0)], id: \.1) { lbl, val in
-                                Button {
-                                    withAnimation(.easeInOut(duration: 0.15)) {
-                                        interval        = val
-                                        intervalText    = formatInterval(val)
-                                        intervalInvalid = false
+                if tab == .general {
+                    SettingsSection(title: "General") {
+                        SettingsRow(
+                            icon: "arrow.clockwise.circle.fill",
+                            iconColor: .red,
+                            title: "Launch at Login",
+                            subtitle: "Opens automatically when your Mac starts up",
+                            onTap: { isLaunchEnabled.toggle() }
+                        ) {
+                            Toggle("", isOn: $isLaunchEnabled)
+                                .labelsHidden()
+                                .onChange(of: isLaunchEnabled) { _, newValue in
+                                    if let error = LoginItemManager.shared.setEnabled(newValue) {
+                                        isLaunchEnabled = !newValue
+                                        loginItemError = error.localizedDescription
                                     }
-                                } label: {
-                                    Text(lbl)
-                                        .font(.system(size: 11, weight: .medium))
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 4)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 6)
-                                                .fill(interval == val
-                                                      ? Color.accentColor.opacity(0.15)
-                                                      : Color.primary.opacity(0.07))
-                                        )
-                                        .foregroundStyle(interval == val ? Color.accentColor : .secondary)
                                 }
-                                .buttonStyle(.plain)
+                        }
+
+                        Divider().padding(.leading, 56)
+
+                        SettingsRow(
+                            icon: "arrow.down.circle.fill",
+                            iconColor: .blue,
+                            title: "Software Update",
+                            subtitle: "Current: \(AppInfo.fullVersionString)"
+                        ) {
+                            Button("Check for Updates…") { checkForSparkleUpdates() }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                        }
+                    }
+                }
+
+                if tab == .menuBar {
+                    SettingsSection(title: "Menu Bar Icon") {
+                        SettingsRow(
+                            icon: "square.grid.2x2.fill",
+                            iconColor: .purple,
+                            title: "Icon Set",
+                            subtitle: currentIconSetName
+                        ) {
+                            Button("Choose") { showIconSetPicker = true }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                        }
+                        .sheet(isPresented: $showIconSetPicker) {
+                            IconSetPickerView(selectedID: selectedIconSetID) { set in
+                                applyIconSet(set)
                             }
                         }
-                        Spacer()
-                    }
-                    .padding(.vertical, 10)
-
-                    Divider().padding(.leading, 56)
-
-                    SettingsRow(
-                        icon: "target",
-                        iconColor: .green,
-                        title: "Ping URL",
-                        subtitle: "Addresses the app visits to test your connection. Separate up to \(ConnectivityChecker.maxTargets) with commas"
-                    ) {
-                        EmptyView()
                     }
 
-                    HStack(spacing: 0) {
-                        Spacer().frame(width: 56)
-                        VStack(alignment: .leading, spacing: 4) {
+                    SettingsSection(title: "Menu Options") {
+                        SettingsRow(
+                            icon: "network",
+                            iconColor: .blue,
+                            title: "Show Internal IPv4",
+                            subtitle: "Display the internal IPv4 address in the menu",
+                            onTap: { showInternalIPv4.toggle() }
+                        ) {
+                            Toggle("", isOn: $showInternalIPv4).labelsHidden()
+                        }
+
+                        Divider().padding(.leading, 56)
+
+                        SettingsRow(
+                            icon: "network",
+                            iconColor: .indigo,
+                            title: "Show Internal IPv6",
+                            subtitle: "Display the internal IPv6 address in the menu",
+                            onTap: { showInternalIPv6.toggle() }
+                        ) {
+                            Toggle("", isOn: $showInternalIPv6).labelsHidden()
+                        }
+                    }
+                }
+
+                if tab == .monitoring {
+                    SettingsSection(title: "Alerts") {
+                        SettingsRow(
+                            icon: "bell.fill",
+                            iconColor: .pink,
+                            title: "Notify on Changes",
+                            subtitle: "Alert when you go offline, come back online, or the VPN drops",
+                            onTap: { notifyOnStatusChange.toggle() }
+                        ) {
+                            Toggle("", isOn: $notifyOnStatusChange)
+                                .labelsHidden()
+                                .onChange(of: notifyOnStatusChange) { _, on in
+                                    if on { StatusNotifier.requestAuthorization() }
+                                }
+                        }
+                }
+
+                SettingsSection(title: "Connection Checks") {
+                        SettingsRow(
+                            icon: "clock.fill",
+                            iconColor: .orange,
+                            title: "Check Interval",
+                            subtitle: "How often the app checks if you're connected"
+                        ) {
                             HStack(spacing: 8) {
-                                TextField(ConnectivityChecker.defaultURLString, text: $pingURL)
+                                TextField("", text: $intervalText)
                                     .textFieldStyle(.roundedBorder)
-                                    .font(.system(size: 12, design: .monospaced))
-                                    .onChange(of: pingURL) { _, _ in pingURLInvalid = false }
+                                    .frame(width: 56)
+                                    .multilineTextAlignment(.trailing)
+                                    .onChange(of: intervalText) { _, newValue in
+                                        let digitsOnly = newValue.filter { $0.isNumber }
+                                        if digitsOnly != newValue { intervalText = digitsOnly }
+                                        if intervalInvalid { intervalInvalid = false }
+                                    }
 
-                                if pingURLSaved {
+                                Text("sec")
+                                    .foregroundStyle(.secondary)
+                                    .font(.system(size: 12))
+
+                                if intervalSaved {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundStyle(.green)
                                         .font(.system(size: 16))
                                         .transition(.scale.combined(with: .opacity))
                                 } else {
-                                    Button("Apply") { applyPingURL() }
+                                    Button("Apply") { applyInterval() }
                                         .buttonStyle(.bordered)
                                         .controlSize(.small)
                                         .transition(.opacity.combined(with: .scale))
                                 }
                             }
-                            .animation(.easeInOut(duration: 0.18), value: pingURLSaved)
+                            .animation(.easeInOut(duration: 0.18), value: intervalSaved)
+                        }
 
-                            if pingURLInvalid {
+                        if intervalInvalid {
+                            HStack(spacing: 0) {
+                                Spacer().frame(width: 56)
                                 HStack(spacing: 4) {
                                     Image(systemName: "exclamationmark.triangle.fill")
                                         .font(.system(size: 9))
-                                    Text("Enter valid http(s) URLs, up to \(ConnectivityChecker.maxTargets)")
+                                    Text("Minimum interval is 30 seconds")
                                         .font(.system(size: 10))
                                 }
                                 .foregroundStyle(.red)
                                 .transition(.opacity.combined(with: .move(edge: .top)))
+                                Spacer()
                             }
+                            .padding(.bottom, 4)
+                            .animation(.easeInOut(duration: 0.18), value: intervalInvalid)
                         }
-                        .padding(.trailing, 18)
-                        .animation(.easeInOut(duration: 0.18), value: pingURLInvalid)
-                    }
-                    .padding(.bottom, 4)
 
-                    HStack(spacing: 0) {
-                        Spacer().frame(width: 56)
-                        Button("Restore Default") { restoreDefaultPingURL() }
-                            .buttonStyle(.plain)
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                            .disabled(pingURL.isEmpty)
-                            .opacity(pingURL.isEmpty ? 0.4 : 1)
-                        Spacer()
+                        HStack(spacing: 0) {
+                            Spacer().frame(width: 56)
+                            HStack(spacing: 6) {
+                                ForEach([("30s", 30.0), ("1m", 60.0), ("2m", 120.0), ("5m", 300.0)], id: \.1) { lbl, val in
+                                    Button {
+                                        withAnimation(.easeInOut(duration: 0.15)) {
+                                            interval        = val
+                                            intervalText    = formatInterval(val)
+                                            intervalInvalid = false
+                                        }
+                                    } label: {
+                                        Text(lbl)
+                                            .font(.system(size: 11, weight: .medium))
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 4)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 6)
+                                                    .fill(interval == val
+                                                          ? Color.accentColor.opacity(0.15)
+                                                          : Color.primary.opacity(0.07))
+                                            )
+                                            .foregroundStyle(interval == val ? Color.accentColor : .secondary)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            Spacer()
+                        }
+                        .padding(.vertical, 10)
+
+                        Divider().padding(.leading, 56)
+
+                        SettingsRow(
+                            icon: "target",
+                            iconColor: .green,
+                            title: "Ping URL",
+                            subtitle: "Addresses the app visits to test your connection. Separate up to \(ConnectivityChecker.maxTargets) with commas"
+                        ) {
+                            EmptyView()
+                        }
+
+                        HStack(spacing: 0) {
+                            Spacer().frame(width: 56)
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 8) {
+                                    TextField(ConnectivityChecker.defaultURLString, text: $pingURL)
+                                        .textFieldStyle(.roundedBorder)
+                                        .font(.system(size: 12, design: .monospaced))
+                                        .onChange(of: pingURL) { _, _ in pingURLInvalid = false }
+
+                                    if pingURLSaved {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(.green)
+                                            .font(.system(size: 16))
+                                            .transition(.scale.combined(with: .opacity))
+                                    } else {
+                                        Button("Apply") { applyPingURL() }
+                                            .buttonStyle(.bordered)
+                                            .controlSize(.small)
+                                            .transition(.opacity.combined(with: .scale))
+                                    }
+                                }
+                                .animation(.easeInOut(duration: 0.18), value: pingURLSaved)
+
+                                if pingURLInvalid {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "exclamationmark.triangle.fill")
+                                            .font(.system(size: 9))
+                                        Text("Enter valid http(s) URLs, up to \(ConnectivityChecker.maxTargets)")
+                                            .font(.system(size: 10))
+                                    }
+                                    .foregroundStyle(.red)
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                                }
+                            }
+                            .padding(.trailing, 18)
+                            .animation(.easeInOut(duration: 0.18), value: pingURLInvalid)
+                        }
+                        .padding(.bottom, 4)
+
+                        HStack(spacing: 0) {
+                            Spacer().frame(width: 56)
+                            Button("Restore Default") { restoreDefaultPingURL() }
+                                .buttonStyle(.plain)
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                                .disabled(pingURL.isEmpty)
+                                .opacity(pingURL.isEmpty ? 0.4 : 1)
+                            Spacer()
+                        }
+                        .padding(.bottom, 12)
                     }
-                    .padding(.bottom, 12)
                 }
 
                 footerView
             }
             .padding(20)
+        }
         }
         .frame(width: 440)
         .scrollContentBackground(.hidden)
