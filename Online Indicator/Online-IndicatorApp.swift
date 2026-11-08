@@ -58,6 +58,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
     // MARK: - Setup
 
     private func startApp() {
+        // The controller is lazy (to stay out of unit tests), so touch it here or the
+        // updater, and its automatic checks, wouldn't start until the first manual check.
+        _ = updaterController
         windowCoordinator.onCheckForSparkleUpdates = { [weak self] in
             self?.updaterController.checkForUpdates(nil)
         }
