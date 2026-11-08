@@ -102,12 +102,12 @@ final class NetworkSpeedMonitor {
     private func measureDownload(completion: @escaping (Double?) -> Void) {
         let start = Date()
         downloadTask?.cancel()
-        let task = session.dataTask(with: Self.downloadURL) { data, _, error in
+        let task = session.dataTask(with: Self.downloadURL) { data, response, error in
             if let urlError = error as? URLError, urlError.code == .cancelled {
                 completion(nil)
                 return
             }
-            guard error == nil, let data else {
+            guard error == nil, let data, (response as? HTTPURLResponse)?.statusCode == 200 else {
                 completion(nil)
                 return
             }
@@ -127,12 +127,12 @@ final class NetworkSpeedMonitor {
 
         let start = Date()
         uploadTask?.cancel()
-        let task = session.dataTask(with: request) { _, _, error in
+        let task = session.dataTask(with: request) { _, response, error in
             if let urlError = error as? URLError, urlError.code == .cancelled {
                 completion(nil)
                 return
             }
-            guard error == nil else {
+            guard error == nil, (response as? HTTPURLResponse)?.statusCode == 200 else {
                 completion(nil)
                 return
             }
