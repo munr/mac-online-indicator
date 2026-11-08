@@ -14,6 +14,10 @@ final class MenuBuilder: NSObject {
     private var ipv4RowView:    MenuInfoRowView?
     private var ipv6RowView:    MenuInfoRowView?
     private var gatewayRowView: MenuInfoRowView?
+    private var dnsLookupRowView: MenuInfoRowView?
+    private var probeRowView:     MenuInfoRowView?
+    private var outageRowView:    MenuInfoRowView?
+    private var captivePortalItem: NSMenuItem?
 
     private var ipv4MenuItem:            NSMenuItem?
     private var ipv6MenuItem:            NSMenuItem?
@@ -41,6 +45,7 @@ final class MenuBuilder: NSObject {
     var onCopyGateway: ((String) -> Void)?
     var onCopyDNS:     ((String) -> Void)?
     var onCopyExternalIP: ((String) -> Void)?
+    var onOpenCaptivePortal: (() -> Void)?
     var onRefreshPing:   (() -> Void)?
     var onRefreshSpeed:  (() -> Void)?
     var onOpenSettings:  (() -> Void)?
@@ -77,6 +82,20 @@ final class MenuBuilder: NSObject {
         let statsItem = NSMenuItem()
         statsItem.view = stats
         m.addItem(statsItem)
+
+        // Captive-portal sign-in row — hidden until a portal is detected
+        let portalRow = MenuInfoRowView(frame: NSRect(x: 0, y: 0, width: MenuLayout.menuWidth, height: MenuLayout.rowHeight))
+        portalRow.configure(label: "Network login required", value: "Sign in", available: true)
+        portalRow.helpText = "Open the network login page"
+        portalRow.onCopy = { [weak self] in
+            self?.menu.cancelTracking()
+            self?.onOpenCaptivePortal?()
+        }
+        let portalItem = NSMenuItem()
+        portalItem.view     = portalRow
+        portalItem.isHidden = true
+        captivePortalItem   = portalItem
+        m.addItem(portalItem)
 
         // 3. NETWORK section
         let networkSep = NSMenuItem.separator()
@@ -137,7 +156,17 @@ final class MenuBuilder: NSObject {
         dnsItem.tag  = dnsTag
         m.addItem(dnsItem)
 
-        // 5. Footer
+        // 5. DIAGNOSTICS section
+        m.addItem(.separator())
+        m.addItem(makeSectionItem(title: "DIAGNOSTICS"))
+        dnsLookupRowView = addInfoRow(to: m, label: "DNS Lookup")
+        probeRowView     = addInfoRow(to: m, label: "Probes")
+        outageRowView    = addInfoRow(to: m, label: "Last Outage")
+        resetDNSLookup()
+        updateProbe(nil)
+        updateLastOutage(nil)
+
+        // 6. Footer
         let footer = MenuFooterView(frame: NSRect(x: 0, y: 0, width: MenuLayout.menuWidth, height: 44))
         footer.onSettings = { [weak self] in self?.onOpenSettings?() }
         footer.onQuit     = { [weak self] in self?.onQuit?() }
@@ -158,6 +187,44 @@ final class MenuBuilder: NSObject {
         item.view      = view
         item.isEnabled = false
         return item
+    }
+
+    private func addInfoRow(to menu: NSMenu, label: String) -> MenuInfoRowView {
+        let row = MenuInfoRowView(frame: NSRect(x: 0, y: 0, width: MenuLayout.menuWidth, height: MenuLayout.rowHeight))
+        row.configure(label: label, value: menuNoValue, available: false)
+        row.helpText = "Diagnostic information"
+        let item = NSMenuItem()
+        item.view = row
+        menu.addItem(item)
+        return row
+    }
+
+    // MARK: - Diagnostics
+
+    /// Per-target probe summary and captive-portal row. Pass nil to clear (e.g. no network).
+    func updateProbe(_ result: ProbeResult?) {
+        captivePortalItem?.isHidden = !(result?.captivePortal ?? false)
+        probeRowView?.configure(
+            label: "Probes",
+            value: result?.summary ?? menuNoValue,
+            available: result.map { $0.failedHosts.isEmpty } ?? false
+        )
+    }
+
+    func updateDNSLookup(ms: Double?) {
+        dnsLookupRowView?.configure(
+            label: "DNS Lookup",
+            value: ms.map { "\(Int($0.rounded())) ms" } ?? "Failed",
+            available: ms != nil
+        )
+    }
+
+    func resetDNSLookup() {
+        dnsLookupRowView?.configure(label: "DNS Lookup", value: menuNoValue, available: false)
+    }
+
+    func updateLastOutage(_ summary: String?) {
+        outageRowView?.configure(label: "Last Outage", value: summary ?? "None", available: summary != nil)
     }
 
     // MARK: - Dynamic Address Update

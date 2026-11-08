@@ -70,3 +70,65 @@ final class ConnectivityCheckerURLTests: XCTestCase {
         XCTAssertNil(URL(string: ""))
     }
 }
+
+// MARK: - Probe targets
+
+final class ProbeTargetTests: XCTestCase {
+
+    func testParseTargetsSplitsOnCommasAndWhitespace() {
+        XCTAssertEqual(
+            ConnectivityChecker.parseTargets("https://a.com, https://b.com  http://c.com"),
+            ["https://a.com", "https://b.com", "http://c.com"]
+        )
+    }
+
+    func testParseTargetsEmpty() {
+        XCTAssertTrue(ConnectivityChecker.parseTargets("  ").isEmpty)
+    }
+
+    func testSummaryAllOK() {
+        let r = ProbeResult(reachable: true, latencyMs: 20, total: 3, failedHosts: [], captivePortal: false)
+        XCTAssertEqual(r.summary, "3/3 OK")
+    }
+
+    func testSummaryNamesFirstFailureAndCountsRest() {
+        let r = ProbeResult(reachable: true, latencyMs: 20, total: 3, failedHosts: ["a.com", "b.com"], captivePortal: false)
+        XCTAssertEqual(r.summary, "1/3 OK · a.com +1")
+    }
+}
+
+// MARK: - ConnectionHistory
+
+final class ConnectionHistoryTests: XCTestCase {
+
+    private let t0 = Date(timeIntervalSince1970: 1_000_000)
+
+    func testNoOutageYet() {
+        let h = ConnectionHistory()
+        h.record(.connected, at: t0)
+        XCTAssertNil(h.summary())
+    }
+
+    func testOngoingOutageThenRecovery() {
+        let h = ConnectionHistory()
+        h.record(.connected, at: t0)
+        h.record(.blocked, at: t0.addingTimeInterval(60))
+        XCTAssertTrue(h.summary()?.hasPrefix("Since") == true)
+        h.record(.noNetwork, at: t0.addingTimeInterval(90))          // still the same outage
+        h.record(.connected, at: t0.addingTimeInterval(60 + 180))
+        XCTAssertTrue(h.summary()?.hasSuffix("· 3 min") == true)
+    }
+
+    func testBlipsUnderMinimumAreIgnored() {
+        let h = ConnectionHistory()
+        h.record(.noNetwork, at: t0)
+        h.record(.connected, at: t0.addingTimeInterval(3))
+        XCTAssertNil(h.summary())
+    }
+
+    func testDurationFormatting() {
+        XCTAssertEqual(ConnectionHistory.duration(45), "45 s")
+        XCTAssertEqual(ConnectionHistory.duration(180), "3 min")
+        XCTAssertEqual(ConnectionHistory.duration(3900), "1 h 5 min")
+    }
+}

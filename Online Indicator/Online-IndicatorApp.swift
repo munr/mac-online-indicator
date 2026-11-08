@@ -32,6 +32,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
 
     private var currentStatus: AppState.ConnectionStatus = .noNetwork
     private var hasReportedStatus = false
+    private let history = ConnectionHistory()
     private var lastKnownWifiName: String? = nil
     private var locationManager: CLLocationManager?
 
@@ -70,7 +71,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
             self.currentStatus = status
             self.applyIcon(for: status, wifiName: addresses.wifiName, isVPNActive: addresses.isVPNActive)
             self.menuBuilder.updateConnectionStatus(status)
+            self.history.record(status)
+            self.menuBuilder.updateLastOutage(self.history.summary())
             if status == .noNetwork {
+                self.menuBuilder.updateProbe(nil)
+                self.menuBuilder.resetDNSLookup()
                 self.menuBuilder.updateAddresses(IPAddressProvider.Addresses())
                 self.menuBuilder.updateExternalIP(nil)
                 self.menuBuilder.updateISP(nil)
@@ -78,6 +83,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
             } else {
                 self.menuBuilder.updateVPNState(addresses.isVPNActive)
             }
+        }
+
+        AppState.shared.probeResultHandler = { [weak self] result in
+            self?.menuBuilder.updateProbe(result)
+        }
+
+        AppState.shared.dnsLookupHandler = { [weak self] ms in
+            self?.menuBuilder.updateDNSLookup(ms: ms)
         }
 
         AppState.shared.speedSnapshotHandler = { [weak self] snapshot in
@@ -134,6 +147,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
         menuBuilder.onCopyGateway = { [weak self] _ in self?.showCopiedTooltip(text: "Gateway Copied") }
         menuBuilder.onCopyDNS     = { [weak self] _ in self?.showCopiedTooltip(text: "DNS Copied") }
         menuBuilder.onCopyExternalIP = { [weak self] _ in self?.showCopiedTooltip(text: "External IP Copied") }
+        // Opening the Apple probe URL makes the portal redirect the browser to its login page.
+        menuBuilder.onOpenCaptivePortal = {
+            if let url = URL(string: ConnectivityChecker.defaultURLString) { NSWorkspace.shared.open(url) }
+        }
         menuBuilder.onRefreshPing = { AppState.shared.forceRefreshPing() }
         menuBuilder.onRefreshSpeed = { AppState.shared.forceRefreshSpeed() }
         menuBuilder.onOpenSettings = { [weak self] in self?.windowCoordinator.openSettings() }

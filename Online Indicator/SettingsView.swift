@@ -235,7 +235,7 @@ struct SettingsView: View {
                         icon: "target",
                         iconColor: .green,
                         title: "Ping URL",
-                        subtitle: "The address the app visits to test your connection"
+                        subtitle: "Addresses the app visits to test your connection. Separate up to \(ConnectivityChecker.maxTargets) with commas"
                     ) {
                         EmptyView()
                     }
@@ -267,7 +267,7 @@ struct SettingsView: View {
                                 HStack(spacing: 4) {
                                     Image(systemName: "exclamationmark.triangle.fill")
                                         .font(.system(size: 9))
-                                    Text("Enter a valid URL")
+                                    Text("Enter valid http(s) URLs, up to \(ConnectivityChecker.maxTargets)")
                                         .font(.system(size: 10))
                                 }
                                 .foregroundStyle(.red)
@@ -364,27 +364,31 @@ struct SettingsView: View {
     // MARK: - Ping URL helpers
 
     private func applyPingURL() {
-        let trimmed = pingURL.trimmingCharacters(in: .whitespaces)
-        if !trimmed.isEmpty {
-            let isValid = URL(string: trimmed).flatMap { url in
-                url.scheme.map { ["http", "https"].contains($0) }
+        let targets = ConnectivityChecker.parseTargets(pingURL)
+        let allValid = targets.allSatisfy { target in
+            URL(string: target).flatMap { url in
+                url.scheme.map { ["http", "https"].contains($0) } == true && url.host != nil
             } ?? false
-            if !isValid {
-                withAnimation { pingURLInvalid = true }
-                return
-            }
+        }
+        if !allValid || targets.count > ConnectivityChecker.maxTargets {
+            withAnimation { pingURLInvalid = true }
+            return
         }
         pingURLInvalid = false
-        if trimmed.isEmpty {
+        if targets.isEmpty {
             UserDefaults.standard.removeObject(for: .pingURL)
         } else {
-            UserDefaults.standard.set(trimmed, for: .pingURL)
+            let joined = targets.joined(separator: ", ")
+            UserDefaults.standard.set(joined, for: .pingURL)
+            pingURL = joined
         }
+        AppState.shared.restart()
         showSavedFeedback($pingURLSaved)
     }
 
     private func restoreDefaultPingURL() {
         UserDefaults.standard.removeObject(for: .pingURL)
+        AppState.shared.restart()
         withAnimation { pingURL = "" }
         showSavedFeedback($pingURLSaved)
     }
