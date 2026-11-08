@@ -7,23 +7,53 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2FD27A9CD8739F00666D1A8C /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A950DB935366B4184525C15B /* Cocoa.framework */; };
 		662BD7972F4C5FF70044FC6E /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 662BD7962F4C5FF70044FC6E /* Sparkle */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		79387512EFF1DAC874D436AB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 667709122F48D39F00A97525 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 667709192F48D39F00A97525;
+			remoteInfo = "Online Indicator";
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		5AB712406141829D86C3B92A /* OnlineIndicatorTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OnlineIndicatorTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		662BD7942F4C5FF70044FC6E /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = .gitignore; sourceTree = "<group>"; };
 		6677091A2F48D39F00A97525 /* Online Indicator.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Online Indicator.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A950DB935366B4184525C15B /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		6677091C2F48D39F00A97525 /* Online Indicator */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = "Online Indicator";
+			sourceTree = "<group>";
+		};
+		D50E30DFBDEE91B929924A8A /* OnlineIndicatorTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
+			path = OnlineIndicatorTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		2342E245FFD056ACB776BAE0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2FD27A9CD8739F00666D1A8C /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		667709172F48D39F00A97525 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -35,12 +65,22 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		0AFD5219AB5E001C131BB991 /* OS X */ = {
+			isa = PBXGroup;
+			children = (
+				A950DB935366B4184525C15B /* Cocoa.framework */,
+			);
+			name = "OS X";
+			sourceTree = "<group>";
+		};
 		667709112F48D39F00A97525 = {
 			isa = PBXGroup;
 			children = (
 				662BD7942F4C5FF70044FC6E /* .gitignore */,
 				6677091C2F48D39F00A97525 /* Online Indicator */,
 				6677091B2F48D39F00A97525 /* Products */,
+				E9AAB3EE7A48D297AEC5C559 /* Frameworks */,
+				D50E30DFBDEE91B929924A8A /* OnlineIndicatorTests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -48,8 +88,17 @@
 			isa = PBXGroup;
 			children = (
 				6677091A2F48D39F00A97525 /* Online Indicator.app */,
+				5AB712406141829D86C3B92A /* OnlineIndicatorTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		E9AAB3EE7A48D297AEC5C559 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				0AFD5219AB5E001C131BB991 /* OS X */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -78,6 +127,27 @@
 			productName = "Online Indicator";
 			productReference = 6677091A2F48D39F00A97525 /* Online Indicator.app */;
 			productType = "com.apple.product-type.application";
+		};
+		9F81D3AE60BC64DDF004E336 /* OnlineIndicatorTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C0D46057E19D3C722E08D111 /* Build configuration list for PBXNativeTarget "OnlineIndicatorTests" */;
+			buildPhases = (
+				82517D9E20BEE8F64A9D2CD0 /* Sources */,
+				2342E245FFD056ACB776BAE0 /* Frameworks */,
+				A258C06EA1204834F4AFCE08 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				3BCFA07C7E53CFE0F86DB0FB /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D50E30DFBDEE91B929924A8A /* OnlineIndicatorTests */,
+			);
+			name = OnlineIndicatorTests;
+			productName = OnlineIndicatorTests;
+			productReference = 5AB712406141829D86C3B92A /* OnlineIndicatorTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -112,12 +182,20 @@
 			projectRoot = "";
 			targets = (
 				667709192F48D39F00A97525 /* Online Indicator */,
+				9F81D3AE60BC64DDF004E336 /* OnlineIndicatorTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		667709182F48D39F00A97525 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A258C06EA1204834F4AFCE08 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -155,9 +233,40 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		82517D9E20BEE8F64A9D2CD0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		3BCFA07C7E53CFE0F86DB0FB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = "Online Indicator";
+			target = 667709192F48D39F00A97525 /* Online Indicator */;
+			targetProxy = 79387512EFF1DAC874D436AB /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		569CA4C3C2B15BFA60A30E71 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(BUILT_PRODUCTS_DIR)/Online Indicator.app/Contents/MacOS/Online Indicator";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.munr.OnlineIndicatorTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Online Indicator.app/Contents/MacOS/Online Indicator";
+			};
+			name = Debug;
+		};
 		667709232F48D3A000A97525 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -306,7 +415,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
 				MARKETING_VERSION = 0.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.munr.onlineindicator";
+				PRODUCT_BUNDLE_IDENTIFIER = com.munr.onlineindicator;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -348,7 +457,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.6;
 				MARKETING_VERSION = 0.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.munr.onlineindicator";
+				PRODUCT_BUNDLE_IDENTIFIER = com.munr.onlineindicator;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -357,6 +466,21 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		C97DE0B996D139DA8CA8A1A0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(BUILT_PRODUCTS_DIR)/Online Indicator.app/Contents/MacOS/Online Indicator";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
+				PRODUCT_BUNDLE_IDENTIFIER = com.munr.OnlineIndicatorTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Online Indicator.app/Contents/MacOS/Online Indicator";
 			};
 			name = Release;
 		};
@@ -377,6 +501,15 @@
 			buildConfigurations = (
 				667709262F48D3A000A97525 /* Debug */,
 				667709272F48D3A000A97525 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C0D46057E19D3C722E08D111 /* Build configuration list for PBXNativeTarget "OnlineIndicatorTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C97DE0B996D139DA8CA8A1A0 /* Release */,
+				569CA4C3C2B15BFA60A30E71 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

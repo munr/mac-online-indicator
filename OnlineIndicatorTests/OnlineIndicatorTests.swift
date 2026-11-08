@@ -1,9 +1,5 @@
 import XCTest
-
-// NOTE: Add this file to an "OnlineIndicatorTests" Unit Testing Bundle target via
-// Xcode → File → New → Target → Unit Testing Bundle. The target must link the
-// app's source files (or use @testable import OnlineIndicator once the product
-// module name is set).
+@testable import Online_Indicator
 
 // MARK: - UserDefaults.Key
 
