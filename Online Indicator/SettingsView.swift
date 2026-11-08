@@ -15,7 +15,7 @@ struct SettingsView: View {
 
     @State private var interval: Double = {
         let v = UserDefaults.standard.double(for: .refreshInterval)
-        return v == 0 ? 60 : v
+        return v == 0 ? 30 : v
     }()
     @State private var intervalText    = ""
     @State private var intervalSaved   = false
