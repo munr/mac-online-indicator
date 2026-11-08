@@ -39,6 +39,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
     // MARK: - Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // The unit-test host launches the full app; don't start monitoring or show UI then.
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil { return }
         if UserDefaults.standard.object(for: .refreshInterval) == nil {
             windowCoordinator.showOnboarding { [weak self] in
                 self?.windowCoordinator.dismissOnboarding()

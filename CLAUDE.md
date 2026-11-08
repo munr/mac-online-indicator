@@ -45,10 +45,13 @@ This is a **menu bar only** SwiftUI + AppKit macOS app (no main window). The ent
 NetworkMonitor (NWPathMonitor)
  └─► AppState.checkConnection()
  ├─► .noNetwork (if no path)
- └─► ConnectivityChecker.checkOutboundConnection()
- ├─► .connected (HTTP 200–399 + body contains "Success" for captive.apple.com; HTTP 200–399 for custom URLs)
- └─► .blocked (any other result)
+ ├─► ConnectivityChecker.measureDNSLookup() ─► AppState.dnsLookupHandler ─► MenuBuilder.updateDNSLookup
+ └─► ConnectivityChecker.checkOutboundConnection()  (probes all targets in parallel → ProbeResult)
+ ├─► AppState.probeResultHandler ─► MenuBuilder.updateProbe (Probes row + captive-portal row)
+ ├─► .connected (any target OK: HTTP 200–399, plus body contains "Success" for captive.apple.com)
+ └─► .blocked (no target OK)
  └─► AppDelegate.statusUpdateHandler (all statuses)
+ ├─► StatusNotifier / ConnectionHistory.record (notifications, last-outage row)
  ├─► AppDelegate.applyIcon(for:wifiName:isVPNActive:)
  │ └─► StatusIconRenderer.render(for:wifiName:isVPNActive:)
  └─► MenuBuilder.updateConnectionStatus(_:)
@@ -56,6 +59,10 @@ NetworkMonitor (NWPathMonitor)
 
 `AppState` also owns a `NetworkSpeedMonitor` (download/upload/ping) and tracks `isVPNActive`.
 `AppState` owns the timer (default 30 s, configurable) and debounces rapid `NetworkMonitor` path changes (1 s). Settings changes call `AppState.restart()` to reset the timer and probe immediately.
+
+**Probe targets:** the `pingURL` setting holds up to 5 comma/whitespace-separated URLs (`ConnectivityChecker.parseTargets`); empty means `captive.apple.com`. All are probed in parallel; the app is *connected* if any succeeds, and `ProbeResult` records which failed. A 2xx/3xx answer from the default Apple probe without "Success" in the body is flagged as a captive portal (`ProbeResult.captivePortal`). `checkOutboundConnection` must be called on the main thread and delivers its result on the main thread.
+
+**DNS timing:** `ConnectivityChecker.measureDNSLookup` resolves a random subdomain of `captive.apple.com` (never cached, so it measures the resolver, not the local cache). It blocks, so it runs off the main thread and `AppState` skips a cycle if the previous lookup hasn't returned.
 
 ### Menu
 
@@ -65,7 +72,10 @@ The menu is a custom card-style layout built entirely with view-backed `NSMenuIt
 2. **Stats bar** (`MenuStatsBarView`) — ping, download Mbps, upload Mbps; tapping triggers a manual refresh
 3. **NETWORK section** — Internal IPv4, Internal IPv6 (static rows, updated via stored `MenuInfoRowView?` references)
 4. **ROUTER section** — Gateway (static), DNS entries (dynamic, tag = `dnsTag = 800`)
-5. **Footer** (`MenuFooterView`) — Settings and Quit buttons
+5. **DIAGNOSTICS section** — DNS Lookup, Probes (per-target summary), Last Outage (static rows, updated via stored `MenuInfoRowView?` references)
+6. **Footer** (`MenuFooterView`) — Settings and Quit buttons
+
+A hidden-by-default "Network login required → Sign in" row sits under the stats bar and is shown when a captive portal is detected. `MenuInfoRowView.onCopy` is the generic click action (copy for IP rows, open login page for the portal row); set `helpText` to match.
 
 `MenuBuilder` builds the `NSMenu` once. Static rows are updated via stored view references. DNS uses integer tag `dnsTag = 800` so rows can be removed and re-inserted without rebuilding the full menu. There is no `knownNetworksTag`.
 
@@ -99,12 +109,22 @@ All `UserDefaults` keys are defined in `UserDefaultsKeys.swift` as `UserDefaults
 
 `WindowCoordinator` manages opening/closing the Settings and Onboarding windows (both `NSWindow`-backed SwiftUI). The app uses Sparkle for auto-updates; `WindowCoordinator` holds a callback wired to `SPUStandardUpdaterController`.
 
+### Notifications & outage history
+
+`StatusNotifier` posts local notifications (connectivity change, VPN drop) when the opt-in `notifyOnStatusChange` setting is on; `AppDelegate` ignores the first status after launch as a baseline. `ConnectionHistory` keeps only the most recent outage in memory (outages under 10 s are ignored) and feeds the Last Outage row.
+
+### Tests
+
+`OnlineIndicatorTests/` is a synchronized-folder unit-test target hosted by the app (`@testable import Online_Indicator`); `AppDelegate` returns early from `applicationDidFinishLaunching` when running under XCTest. Console noise about `com.apple.linkd.autoShortcut` is harmless. New code with real logic gets a test here.
+
 ### Key files
 
 | File | Purpose |
 |------|---------|
 | `AppState.swift` | Single source of truth for `ConnectionStatus`; owns timer, speed monitor, VPN state, and monitoring |
-| `ConnectivityChecker.swift` | HTTP probe to `captive.apple.com` (or custom URL); returns reachability + latency |
+| `ConnectivityChecker.swift` | Parallel HTTP probes to one or more targets (default `captive.apple.com`); returns a `ProbeResult`; also the DNS lookup timer |
+| `ConnectionHistory.swift` | In-memory record of the last outage |
+| `StatusNotifier.swift` | Opt-in local notifications for status and VPN changes |
 | `NetworkSpeedMonitor.swift` | Measures download/upload Mbps and ping; triggered explicitly, no background timer |
 | `CachedFetcher.swift` | Generic TTL-cached URL fetcher; shared instances for external IP and ISP |
 | `MenuBuilder.swift` | Builds and dynamically updates the `NSMenu` with view-backed items |
