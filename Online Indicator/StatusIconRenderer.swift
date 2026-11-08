@@ -42,8 +42,8 @@ struct StatusIconRenderer {
         let showBadge = isVPNActive
         let tinted = showBadge ? compositeVPNBadge(onto: base) : base
 
-        let toolTip: String
-        let a11yLabel: String
+        var toolTip: String
+        var a11yLabel: String
         switch status {
         case .connected:
             let network = wifiName.map { " — Wi-Fi: \($0)" } ?? ""
@@ -55,6 +55,11 @@ struct StatusIconRenderer {
         case .noNetwork:
             toolTip   = "Online Indicator: No Network — No active network interface"
             a11yLabel = "Online Indicator: No Network"
+        }
+        // The badge is visual only, so say it in text too.
+        if isVPNActive {
+            toolTip   += " · VPN active"
+            a11yLabel += ", VPN active"
         }
 
         let rawLabel  = String(pref.menuLabel.prefix(15)).trimmingCharacters(in: .whitespaces)
