@@ -70,7 +70,7 @@ final class AppState {
         // Short delay before speed test to avoid cold-start DNS/TCP/TLS overhead
         // skewing the first measurement lower than actual throughput.
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
-            self?.speedMonitor.runNow()
+            self?.refreshSpeedAutomatically()
         }
     }
 
@@ -89,7 +89,15 @@ final class AppState {
         checkConnection()
     }
 
+    /// User-initiated: runs even on a metered connection.
     func forceRefreshSpeed() {
+        speedMonitor.runNow()
+    }
+
+    /// For speed tests the app starts itself (launch, Wi-Fi or VPN change): skipped on a metered
+    /// connection, since each run transfers about 30 MB.
+    func refreshSpeedAutomatically() {
+        guard !networkMonitor.isMetered else { return }
         speedMonitor.runNow()
     }
 
@@ -161,7 +169,7 @@ final class AppState {
                 self?.speedMonitor.updatePing(ms)
             }
             if ssidChanged && result.reachable {
-                self?.speedMonitor.runNow()
+                self?.refreshSpeedAutomatically()
             }
         }
     }

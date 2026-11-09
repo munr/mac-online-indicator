@@ -119,7 +119,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
             self.fetchExternalData()
             // No ping refresh here: this handler runs inside AppState.checkConnection, which
             // goes on to probe as soon as it returns.
-            AppState.shared.forceRefreshSpeed()
+            AppState.shared.refreshSpeedAutomatically()
         }
 
         AppState.shared.networkAddressesChangedHandler = { [weak self] addresses in
