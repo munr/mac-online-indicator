@@ -239,6 +239,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
     }
 
     private func fetchExternalData() {
+        guard UserDefaults.standard.bool(for: .fetchExternalInfo, default: true) else {
+            menuBuilder.updateExternalIP(nil)
+            menuBuilder.updateISP(nil)
+            return
+        }
         externalIPFetcher.fetch { [weak self] ip in self?.menuBuilder.updateExternalIP(ip) }
         ispFetcher.fetch { [weak self] isp in self?.menuBuilder.updateISP(isp) }
     }

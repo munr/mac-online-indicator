@@ -32,6 +32,7 @@ struct SettingsView: View {
     @AppStorage(UserDefaults.Key.showInternalIPv4.rawValue) private var showInternalIPv4 = true
     @AppStorage(UserDefaults.Key.showInternalIPv6.rawValue) private var showInternalIPv6 = true
     @AppStorage(UserDefaults.Key.notifyOnStatusChange.rawValue) private var notifyOnStatusChange = false
+    @AppStorage(UserDefaults.Key.fetchExternalInfo.rawValue) private var fetchExternalInfo = true
 
     // MARK: - Icon set helpers
 
@@ -311,6 +312,19 @@ struct SettingsView: View {
                             Spacer()
                         }
                         .padding(.bottom, 12)
+                    }
+
+                    SettingsSection(title: "Online Lookups") {
+                        SettingsRow(
+                            icon: "globe",
+                            iconColor: .blue,
+                            title: "External IP & ISP",
+                            subtitle: "Ask ipify.org and ipinfo.io for your public IP and provider when the menu opens",
+                            onTap: { fetchExternalInfo.toggle() }
+                        ) {
+                            Toggle("", isOn: $fetchExternalInfo)
+                                .labelsHidden()
+                        }
                     }
                 }
 
