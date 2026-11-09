@@ -96,10 +96,19 @@ Then open the app normally.
 Online Indicator collects no data. Period.
 
 - No analytics, crash reporting or usage tracking
-- No personal information collected or transmitted
+- No data is sent to the developer or to any analytics service
 - All preferences are stored locally on your Mac
 
-The only outbound network request the app makes is the connectivity probe, a simple HTTP request to `captive.apple.com` (or your custom URL) to check if the internet is reachable. This is identical to what macOS itself does internally.
+The app does make network requests to the services below. Your public IP address is visible to the ones that serve it, as it is to any site you visit. Nothing else about you or your Mac is sent.
+
+| Service | Purpose | When |
+|---------|---------|------|
+| `captive.apple.com` (or your custom URLs) | Connectivity probe, identical to what macOS does internally | Every refresh interval |
+| A random subdomain of `captive.apple.com` | Times your DNS resolver | Every refresh interval |
+| `api.ipify.org` | Shows your external IP in the menu | When the menu opens, cached for 60 s |
+| `ipinfo.io` | Shows your ISP in the menu | When the menu opens, cached for 60 s |
+| `speed.cloudflare.com` | Download/upload speed test (about 30 MB) | At launch, on a Wi-Fi or VPN change, and when you tap the stats bar. Automatic runs are skipped on personal hotspots and in Low Data Mode |
+| `raw.githubusercontent.com` | Sparkle update check (the appcast file) | Periodically, while automatic update checks are on |
 
 <br>
 
