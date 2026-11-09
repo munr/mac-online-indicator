@@ -15,20 +15,12 @@ final class NetworkSpeedMonitor {
     var measuringChangedHandler: ((Bool) -> Void)?
     private(set) var snapshot = Snapshot()
 
-    private let queue = DispatchQueue(label: "com.onlineindicator.speedmonitor", qos: .utility)
     private var downloadTask: URLSessionDataTask?
     private var uploadTask: URLSessionDataTask?
     private var isMeasuring = false {
         didSet {
             guard isMeasuring != oldValue else { return }
-            let measuring = isMeasuring
-            if Thread.isMainThread {
-                measuringChangedHandler?(measuring)
-            } else {
-                DispatchQueue.main.async { [weak self] in
-                    self?.measuringChangedHandler?(measuring)
-                }
-            }
+            measuringChangedHandler?(isMeasuring)
         }
     }
 
@@ -47,28 +39,24 @@ final class NetworkSpeedMonitor {
 
     // MARK: - Control
 
+    /// Main thread only, like everything else on this class; the work itself is async URLSession tasks.
     func runNow() {
-        queue.async { [weak self] in
-            guard let self, !self.isMeasuring else { return }
-            self.isMeasuring = true
-            self.measureSpeeds()
-        }
+        guard !isMeasuring else { return }
+        isMeasuring = true
+        measureSpeeds()
     }
 
+    /// Cancelled tasks complete with `nil`, so the normal completion path clears `isMeasuring`.
     func cancel() {
         downloadTask?.cancel()
         uploadTask?.cancel()
-        queue.async { self.isMeasuring = false }
     }
 
     // MARK: - Ping (pushed from AppState on every connectivity check)
 
     func updatePing(_ ms: Double) {
         snapshot.pingMs = ms
-        let snap = snapshot
-        DispatchQueue.main.async { [weak self] in
-            self?.snapshotHandler?(snap)
-        }
+        snapshotHandler?(snapshot)
     }
 
     // MARK: - Speed measurement
