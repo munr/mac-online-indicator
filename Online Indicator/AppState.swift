@@ -12,6 +12,7 @@ final class AppState {
     private var debounceTimer: Timer?
     private var lastWifiSSID: String?
     private var dnsLookupInFlight = false
+    private var hasChecked = false
 
     enum ConnectionStatus {
         case connected
@@ -47,7 +48,13 @@ final class AppState {
 
         // Listen for network interface changes (WiFi off, Ethernet unplugged)
         networkMonitor.pathChangedHandler = { [weak self] in
-            self?.debouncedImmediateCheck()
+            guard let self else { return }
+            if self.hasChecked {
+                self.debouncedImmediateCheck()
+            } else {
+                // First path update: the monitor now knows the real state, so run the startup check.
+                self.checkConnection()
+            }
         }
 
         networkMonitor.startMonitoring()
@@ -64,8 +71,8 @@ final class AppState {
 
         startTimer()
 
-        // Immediate ping/connectivity check on startup
-        checkConnection()
+        // The startup connectivity check runs on the first path update (see pathChangedHandler);
+        // checking now would read the monitor before it knows the real state.
 
         // Short delay before speed test to avoid cold-start DNS/TCP/TLS overhead
         // skewing the first measurement lower than actual throughput.
@@ -133,6 +140,8 @@ final class AppState {
     // MARK: - Core Logic
 
     private func checkConnection() {
+
+        hasChecked = true
 
         // One snapshot for the synchronous handlers below; the async probe result re-reads.
         let addresses = IPAddressProvider.current()

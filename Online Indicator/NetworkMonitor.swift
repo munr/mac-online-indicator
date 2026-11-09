@@ -20,9 +20,8 @@ class NetworkMonitor {
             }
         }
 
+        // Not read from `currentPath` here: right after start() it still reports `unsatisfied`.
+        // The first pathUpdateHandler call delivers the real initial state.
         monitor.start(queue: queue)
-        
-        isConnected = monitor.currentPath.status == .satisfied
-        isMetered = monitor.currentPath.isExpensive || monitor.currentPath.isConstrained
     }
 }
