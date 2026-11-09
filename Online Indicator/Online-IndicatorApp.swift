@@ -69,28 +69,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
         setupStatusItem()
 
         AppState.shared.statusUpdateHandler = { [weak self] status, addresses in
-            guard let self else { return }
-            // Skip the first result after launch: it's a baseline, not a change.
-            if self.hasReportedStatus && status != self.currentStatus {
-                StatusNotifier.statusChanged(to: status)
-            }
-            self.hasReportedStatus = true
-            self.currentStatus = status
-            self.lastAddresses = addresses
-            self.applyIcon(for: status, wifiName: addresses.wifiName, isVPNActive: addresses.isVPNActive)
-            self.menuBuilder.updateConnectionStatus(status)
-            self.history.record(status)
-            self.menuBuilder.updateLastOutage(self.history.summary())
-            if status == .noNetwork {
-                self.menuBuilder.updateProbe(nil)
-                self.menuBuilder.resetDNSLookup()
-                self.menuBuilder.updateAddresses(IPAddressProvider.Addresses())
-                self.menuBuilder.updateExternalIP(nil)
-                self.menuBuilder.updateISP(nil)
-                self.menuBuilder.updateVPNState(false)
-            } else {
-                self.menuBuilder.updateVPNState(addresses.isVPNActive)
-            }
+            self?.handleStatusUpdate(status, addresses)
         }
 
         AppState.shared.probeResultHandler = { [weak self] result in
@@ -145,6 +124,31 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
             guard let self else { return }
             let addresses = self.lastAddresses
             self.applyIcon(for: self.currentStatus, wifiName: addresses.wifiName, isVPNActive: addresses.isVPNActive)
+        }
+    }
+
+    /// Applies a new connection status everywhere it shows: notification, icon, menu and outage history.
+    private func handleStatusUpdate(_ status: AppState.ConnectionStatus, _ addresses: IPAddressProvider.Addresses) {
+        // Skip the first result after launch: it's a baseline, not a change.
+        if hasReportedStatus && status != currentStatus {
+            StatusNotifier.statusChanged(to: status)
+        }
+        hasReportedStatus = true
+        currentStatus = status
+        lastAddresses = addresses
+        applyIcon(for: status, wifiName: addresses.wifiName, isVPNActive: addresses.isVPNActive)
+        menuBuilder.updateConnectionStatus(status)
+        history.record(status)
+        menuBuilder.updateLastOutage(history.summary())
+        if status == .noNetwork {
+            menuBuilder.updateProbe(nil)
+            menuBuilder.resetDNSLookup()
+            menuBuilder.updateAddresses(IPAddressProvider.Addresses())
+            menuBuilder.updateExternalIP(nil)
+            menuBuilder.updateISP(nil)
+            menuBuilder.updateVPNState(false)
+        } else {
+            menuBuilder.updateVPNState(addresses.isVPNActive)
         }
     }
 
