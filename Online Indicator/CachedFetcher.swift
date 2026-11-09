@@ -51,12 +51,13 @@ final class CachedFetcher {
         currentTask?.cancel()
         currentTask = nil
 
+        let transform = self.transform   // captured here: the completion runs off the main actor
         let task = session.dataTask(with: url) { [weak self] data, response, error in
             if let urlError = error as? URLError, urlError.code == .cancelled { return }
             let result: String? = {
                 // An error page (e.g. a 429 rate limit) must not be shown as the IP or ISP.
                 guard let data, (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
-                return self?.transform(data)
+                return transform(data)
             }()
             Task { @MainActor [weak self] in
                 guard let self else { return }
