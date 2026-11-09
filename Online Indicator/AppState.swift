@@ -146,6 +146,7 @@ final class AppState {
 
         if !networkMonitor.isConnected {
             connectivityChecker.cancelPending()
+            speedMonitor.cancel()
             statusUpdateHandler?(.noNetwork, addresses)
             return
         }
