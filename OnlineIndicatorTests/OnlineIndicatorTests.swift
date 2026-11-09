@@ -259,3 +259,63 @@ final class ConnectivityProbeTests: XCTestCase {
         wait(for: [never], timeout: 0.5)
     }
 }
+
+// MARK: - CachedFetcher
+
+@MainActor
+final class CachedFetcherTests: XCTestCase {
+
+    private var clock = Date(timeIntervalSince1970: 1_000_000)
+
+    override func setUp() { super.setUp(); StubURLProtocol.reset() }
+
+    private func makeFetcher() -> CachedFetcher {
+        CachedFetcher(url: URL(string: "https://ip.example")!,
+                      session: StubURLProtocol.session(),
+                      now: { [unowned self] in self.clock }) { data in
+            String(data: data, encoding: .utf8)
+        }
+    }
+
+    private func fetch(_ fetcher: CachedFetcher) -> String? {
+        let done = expectation(description: "fetch")
+        var value: String?
+        fetcher.fetch { value = $0; done.fulfill() }
+        wait(for: [done], timeout: 5)
+        return value
+    }
+
+    func testCachesWithinTTLAndRefetchesAfter() {
+        StubURLProtocol.replies["ip.example"] = .init(body: "203.0.113.7")
+        let fetcher = makeFetcher()
+
+        XCTAssertEqual(fetch(fetcher), "203.0.113.7")
+        clock.addTimeInterval(59)
+        XCTAssertEqual(fetch(fetcher), "203.0.113.7")
+        XCTAssertEqual(StubURLProtocol.requestCount, 1)
+
+        clock.addTimeInterval(2)
+        XCTAssertEqual(fetch(fetcher), "203.0.113.7")
+        XCTAssertEqual(StubURLProtocol.requestCount, 2)
+    }
+
+    func testNon200IsNilAndNotCached() {
+        StubURLProtocol.replies["ip.example"] = .init(status: 429, body: "rate limited")
+        let fetcher = makeFetcher()
+
+        XCTAssertNil(fetch(fetcher))
+        StubURLProtocol.replies["ip.example"] = .init(body: "203.0.113.7")
+        XCTAssertEqual(fetch(fetcher), "203.0.113.7")
+        XCTAssertEqual(StubURLProtocol.requestCount, 2)
+    }
+
+    func testInvalidateCacheForcesARefetch() {
+        StubURLProtocol.replies["ip.example"] = .init(body: "203.0.113.7")
+        let fetcher = makeFetcher()
+
+        _ = fetch(fetcher)
+        fetcher.invalidateCache()
+        _ = fetch(fetcher)
+        XCTAssertEqual(StubURLProtocol.requestCount, 2)
+    }
+}
