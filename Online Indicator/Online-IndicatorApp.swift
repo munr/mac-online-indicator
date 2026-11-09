@@ -35,6 +35,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
     private let history = ConnectionHistory()
     private var lastKnownWifiName: String? = nil
     private var locationManager: CLLocationManager?
+    private var lastLocationAuthorization: CLAuthorizationStatus?
 
     // MARK: - Lifecycle
 
@@ -173,6 +174,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
 
     private func requestLocationPermissionIfNeeded() {
         let lm = CLLocationManager()
+        // CLLocationManager reports the current status as soon as a delegate is set; remember it so
+        // that initial callback doesn't trigger a second check right after start().
+        lastLocationAuthorization = lm.authorizationStatus
         lm.delegate = self
         locationManager = lm
         if lm.authorizationStatus == .notDetermined {
@@ -181,6 +185,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        guard manager.authorizationStatus != lastLocationAuthorization else { return }
+        lastLocationAuthorization = manager.authorizationStatus
         switch manager.authorizationStatus {
         case .authorizedAlways, .authorizedWhenInUse:
             AppState.shared.restart()
