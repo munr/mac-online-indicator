@@ -292,43 +292,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
 
     // MARK: - Popovers
 
-    private func showStatusPopover<Content: View>(content: Content, autoDismissAfter delay: Double) {
-        guard let button = statusItem.button else { return }
-
-        let hostingView = NSHostingView(rootView: content)
-        let size        = sanitizedPopoverSize(for: hostingView)
-        hostingView.frame = NSRect(origin: .zero, size: size)
-
-        let controller = NSViewController()
-        controller.view = hostingView
-
-        let popover = NSPopover()
-        popover.behavior            = .transient
-        popover.animates            = true
-        popover.contentSize         = size
-        popover.contentViewController = controller
-
-        let anchor = NSRect(x: button.bounds.midX - 1, y: 0, width: 2, height: button.bounds.height)
-        popover.show(relativeTo: anchor, of: button, preferredEdge: .minY)
-
-        if delay > 0 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { popover.performClose(nil) }
-        }
-    }
-
-    /// SwiftUI can occasionally report non-positive fitting sizes during transient popover creation.
-    /// Clamp to safe minimums to avoid AppKit "Invalid view geometry" warnings.
-    private func sanitizedPopoverSize<Content: View>(for hostingView: NSHostingView<Content>) -> NSSize {
-        hostingView.layoutSubtreeIfNeeded()
-        let measured = hostingView.fittingSize
-        let minWidth: CGFloat = 80
-        let minHeight: CGFloat = 24
-
-        let width = measured.width.isFinite && measured.width > 0 ? measured.width : minWidth
-        let height = measured.height.isFinite && measured.height > 0 ? measured.height : minHeight
-        return NSSize(width: width, height: height)
-    }
-
     private func showCopiedTooltip(text: String) {
         let content = HStack(spacing: 6) {
             Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
@@ -336,7 +299,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        showStatusPopover(content: content, autoDismissAfter: 1.5)
+        StatusPopover.show(content, from: statusItem.button, autoDismissAfter: 1.5)
     }
 
     private func showLaunchTooltip() {
@@ -344,6 +307,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
             .font(.system(size: 13))
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-        showStatusPopover(content: content, autoDismissAfter: 2.0)
+        StatusPopover.show(content, from: statusItem.button, autoDismissAfter: 2.0)
     }
 }
