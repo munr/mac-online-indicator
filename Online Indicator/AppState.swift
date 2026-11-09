@@ -134,7 +134,7 @@ final class AppState {
 
     private func checkConnection() {
 
-        // Call current() once; pass the snapshot to all handlers so they don't re-query.
+        // One snapshot for the synchronous handlers below; the async probe result re-reads.
         let addresses = IPAddressProvider.current()
 
         let ssidChanged = addresses.wifiName != lastWifiSSID
@@ -164,7 +164,8 @@ final class AppState {
         // Attempt outbound requests (delivered on the main thread)
         connectivityChecker.checkOutboundConnection { [weak self] result in
             self?.probeResultHandler?(result)
-            self?.statusUpdateHandler?(result.reachable ? .connected : .blocked, addresses)
+            // The probe can take up to 5 s; re-read so the icon doesn't show a stale SSID/VPN state.
+            self?.statusUpdateHandler?(result.reachable ? .connected : .blocked, IPAddressProvider.current())
             if let ms = result.latencyMs {
                 self?.speedMonitor.updatePing(ms)
             }
