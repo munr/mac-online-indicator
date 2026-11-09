@@ -117,7 +117,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
             self.updateMenuAddresses(addresses)
             self.invalidateExternalCaches()
             self.fetchExternalData()
-            AppState.shared.forceRefreshPing()
+            // No ping refresh here: this handler runs inside AppState.checkConnection, which
+            // goes on to probe as soon as it returns.
             AppState.shared.forceRefreshSpeed()
         }
 
