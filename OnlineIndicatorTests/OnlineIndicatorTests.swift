@@ -319,3 +319,28 @@ final class CachedFetcherTests: XCTestCase {
         XCTAssertEqual(StubURLProtocol.requestCount, 2)
     }
 }
+
+// MARK: - StatusChangeTracker
+
+final class StatusChangeTrackerTests: XCTestCase {
+
+    func testFirstStatusIsABaseline() {
+        var t = StatusChangeTracker()
+        XCTAssertFalse(t.isChange(to: .noNetwork))
+    }
+
+    func testRepeatedStatusIsNotAChange() {
+        var t = StatusChangeTracker()
+        _ = t.isChange(to: .connected)
+        XCTAssertFalse(t.isChange(to: .connected))
+    }
+
+    func testRealChangesAreReportedEachTime() {
+        var t = StatusChangeTracker()
+        _ = t.isChange(to: .noNetwork)
+        XCTAssertTrue(t.isChange(to: .connected))
+        XCTAssertTrue(t.isChange(to: .blocked))
+        XCTAssertFalse(t.isChange(to: .blocked))
+        XCTAssertTrue(t.isChange(to: .connected))
+    }
+}

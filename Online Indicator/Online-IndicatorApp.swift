@@ -31,7 +31,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
     private let ispFetcher        = CachedFetcher.isp
 
     private var currentStatus: AppState.ConnectionStatus = .noNetwork
-    private var hasReportedStatus = false
+    private var statusChanges = StatusChangeTracker()
     private let history = ConnectionHistory()
     private var lastKnownWifiName: String? = nil
     private var lastAddresses = IPAddressProvider.Addresses()
@@ -129,11 +129,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
 
     /// Applies a new connection status everywhere it shows: notification, icon, menu and outage history.
     private func handleStatusUpdate(_ status: AppState.ConnectionStatus, _ addresses: IPAddressProvider.Addresses) {
-        // Skip the first result after launch: it's a baseline, not a change.
-        if hasReportedStatus && status != currentStatus {
+        if statusChanges.isChange(to: status) {
             StatusNotifier.statusChanged(to: status)
         }
-        hasReportedStatus = true
         currentStatus = status
         lastAddresses = addresses
         applyIcon(for: status, wifiName: addresses.wifiName, isVPNActive: addresses.isVPNActive)
