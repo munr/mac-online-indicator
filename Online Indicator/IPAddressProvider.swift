@@ -88,6 +88,13 @@ struct IPAddressProvider {
         return result
     }
 
+    /// Whether there is a usable connection to show addresses for: a Wi-Fi name, an IPv4 address,
+    /// or a global IPv6 one (link-local alone doesn't count, so IPv6-only networks still work).
+    static func hasConnectivity(_ addresses: Addresses) -> Bool {
+        addresses.wifiName != nil || addresses.ipv4 != nil
+            || addresses.ipv6.map { !$0.lowercased().hasPrefix("fe80") } == true
+    }
+
     /// Interfaces whose addresses are shown. Purely virtual/tunnel interfaces are excluded. When the
     /// system's primary route (`State:/Network/Global/IPv4`) is on one of the rest, only that one
     /// counts, so Wi-Fi + Ethernet show the interface actually carrying traffic; otherwise (e.g. a

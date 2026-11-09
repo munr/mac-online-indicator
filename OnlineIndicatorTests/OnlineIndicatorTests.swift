@@ -156,3 +156,17 @@ final class CandidateInterfaceTests: XCTestCase {
         XCTAssertEqual(IPAddressProvider.candidateInterfaces(from: ["lo0", "awdl0", "bridge0", "en0"], primary: nil), ["awdl0", "en0"])
     }
 }
+
+final class ConnectivityPresenceTests: XCTestCase {
+
+    func testNothingMeansNoConnectivity() {
+        XCTAssertFalse(IPAddressProvider.hasConnectivity(.init()))
+        XCTAssertFalse(IPAddressProvider.hasConnectivity(.init(ipv6: "fe80::1")))
+    }
+
+    func testIPv4WifiOrGlobalIPv6Count() {
+        XCTAssertTrue(IPAddressProvider.hasConnectivity(.init(ipv4: "10.0.0.2")))
+        XCTAssertTrue(IPAddressProvider.hasConnectivity(.init(wifiName: "Home")))
+        XCTAssertTrue(IPAddressProvider.hasConnectivity(.init(ipv6: "2001:db8::3")))
+    }
+}

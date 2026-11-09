@@ -211,9 +211,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
     }
 
     /// Updates address rows, clearing everything when there is no real connectivity
-    /// (no WiFi and no routable IPv4). Detects WiFi drop to immediately clear EXT/ISP.
+    /// (no WiFi and no routable IPv4 or IPv6). Detects WiFi drop to immediately clear EXT/ISP.
     private func updateMenuAddresses(_ addresses: IPAddressProvider.Addresses) {
-        let hasConnectivity = addresses.wifiName != nil || addresses.ipv4 != nil
+        let hasConnectivity = IPAddressProvider.hasConnectivity(addresses)
         if lastKnownWifiName != nil && addresses.wifiName == nil {
             invalidateExternalCaches()
             menuBuilder.updateExternalIP(nil)
