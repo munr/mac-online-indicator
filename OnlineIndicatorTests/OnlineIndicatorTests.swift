@@ -141,3 +141,206 @@ final class IPv6PreferenceTests: XCTestCase {
         XCTAssertNil(IPAddressProvider.preferredIPv6(from: []))
     }
 }
+
+final class CandidateInterfaceTests: XCTestCase {
+
+    func testPrimaryInterfaceWinsOverOthers() {
+        XCTAssertEqual(IPAddressProvider.candidateInterfaces(from: ["lo0", "en0", "en5"], primary: "en5"), ["en5"])
+    }
+
+    func testTunnelPrimaryFallsBackToAllRealInterfaces() {
+        XCTAssertEqual(IPAddressProvider.candidateInterfaces(from: ["lo0", "en0", "utun3", "en5"], primary: "utun3"), ["en0", "en5"])
+    }
+
+    func testNoPrimaryKeepsAllRealInterfaces() {
+        XCTAssertEqual(IPAddressProvider.candidateInterfaces(from: ["lo0", "awdl0", "bridge0", "en0"], primary: nil), ["awdl0", "en0"])
+    }
+}
+
+final class ConnectivityPresenceTests: XCTestCase {
+
+    func testNothingMeansNoConnectivity() {
+        XCTAssertFalse(IPAddressProvider.hasConnectivity(.init()))
+        XCTAssertFalse(IPAddressProvider.hasConnectivity(.init(ipv6: "fe80::1")))
+    }
+
+    func testIPv4WifiOrGlobalIPv6Count() {
+        XCTAssertTrue(IPAddressProvider.hasConnectivity(.init(ipv4: "10.0.0.2")))
+        XCTAssertTrue(IPAddressProvider.hasConnectivity(.init(wifiName: "Home")))
+        XCTAssertTrue(IPAddressProvider.hasConnectivity(.init(ipv6: "2001:db8::3")))
+    }
+}
+
+// MARK: - Network stub
+
+/// Answers every request from `replies`, keyed by host. Hosts with no reply get a 599.
+final class StubURLProtocol: URLProtocol {
+
+    struct Reply { var status = 200; var body = "" }
+
+    nonisolated(unsafe) static var replies: [String: Reply] = [:]
+    nonisolated(unsafe) static var requestCount = 0
+
+    static func reset() { replies = [:]; requestCount = 0 }
+
+    static func session() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubURLProtocol.self]
+        return URLSession(configuration: configuration)
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        Self.requestCount += 1
+        let reply = Self.replies[request.url?.host ?? ""] ?? Reply(status: 599)
+        let response = HTTPURLResponse(url: request.url!, statusCode: reply.status, httpVersion: nil, headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(reply.body.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}
+
+// MARK: - ConnectivityChecker (probing)
+
+final class ConnectivityProbeTests: XCTestCase {
+
+    override func setUp() { super.setUp(); StubURLProtocol.reset() }
+
+    private func probe(_ targets: [String], file: StaticString = #filePath, line: UInt = #line) -> ProbeResult? {
+        let checker = ConnectivityChecker(session: StubURLProtocol.session())
+        let done = expectation(description: "probe")
+        var result: ProbeResult?
+        checker.checkOutboundConnection(targets: targets) { result = $0; done.fulfill() }
+        wait(for: [done], timeout: 5)
+        return result
+    }
+
+    func testDefaultProbeWithSuccessBodyIsReachable() {
+        StubURLProtocol.replies["captive.apple.com"] = .init(body: "<HTML><BODY>Success</BODY></HTML>")
+        let r = probe([ConnectivityChecker.defaultURLString])
+        XCTAssertEqual(r?.reachable, true)
+        XCTAssertEqual(r?.captivePortal, false)
+    }
+
+    func testDefaultProbeWithoutSuccessBodyIsACaptivePortal() {
+        StubURLProtocol.replies["captive.apple.com"] = .init(body: "<html>Please log in</html>")
+        let r = probe([ConnectivityChecker.defaultURLString])
+        XCTAssertEqual(r?.reachable, false)
+        XCTAssertEqual(r?.captivePortal, true)
+        XCTAssertEqual(r?.failedHosts, ["captive.apple.com"])
+    }
+
+    func testReachableWhenAnyTargetAnswersAndFailuresAreNamed() {
+        StubURLProtocol.replies["ok.example"] = .init(status: 204)
+        StubURLProtocol.replies["down.example"] = .init(status: 500)
+        let r = probe(["https://ok.example", "https://down.example"])
+        XCTAssertEqual(r?.reachable, true)
+        XCTAssertEqual(r?.failedHosts, ["down.example"])
+        XCTAssertEqual(r?.summary, "1/2 OK · down.example")
+    }
+
+    func testBlockedWhenEveryTargetFails() {
+        let r = probe(["https://a.example", "https://b.example"])
+        XCTAssertEqual(r?.reachable, false)
+        XCTAssertEqual(r?.failedHosts.count, 2)
+    }
+
+    func testCancelPendingSuppressesTheCompletion() {
+        StubURLProtocol.replies["ok.example"] = .init()
+        let checker = ConnectivityChecker(session: StubURLProtocol.session())
+        let never = expectation(description: "completion must not run")
+        never.isInverted = true
+        checker.checkOutboundConnection(targets: ["https://ok.example"]) { _ in never.fulfill() }
+        checker.cancelPending()
+        wait(for: [never], timeout: 0.5)
+    }
+}
+
+// MARK: - CachedFetcher
+
+@MainActor
+final class CachedFetcherTests: XCTestCase {
+
+    private var clock = Date(timeIntervalSince1970: 1_000_000)
+
+    override func setUp() { super.setUp(); StubURLProtocol.reset() }
+
+    private func makeFetcher() -> CachedFetcher {
+        CachedFetcher(url: URL(string: "https://ip.example")!,
+                      session: StubURLProtocol.session(),
+                      now: { [unowned self] in self.clock }) { data in
+            String(data: data, encoding: .utf8)
+        }
+    }
+
+    private func fetch(_ fetcher: CachedFetcher) -> String? {
+        let done = expectation(description: "fetch")
+        var value: String?
+        fetcher.fetch { value = $0; done.fulfill() }
+        wait(for: [done], timeout: 5)
+        return value
+    }
+
+    func testCachesWithinTTLAndRefetchesAfter() {
+        StubURLProtocol.replies["ip.example"] = .init(body: "203.0.113.7")
+        let fetcher = makeFetcher()
+
+        XCTAssertEqual(fetch(fetcher), "203.0.113.7")
+        clock.addTimeInterval(59)
+        XCTAssertEqual(fetch(fetcher), "203.0.113.7")
+        XCTAssertEqual(StubURLProtocol.requestCount, 1)
+
+        clock.addTimeInterval(2)
+        XCTAssertEqual(fetch(fetcher), "203.0.113.7")
+        XCTAssertEqual(StubURLProtocol.requestCount, 2)
+    }
+
+    func testNon200IsNilAndNotCached() {
+        StubURLProtocol.replies["ip.example"] = .init(status: 429, body: "rate limited")
+        let fetcher = makeFetcher()
+
+        XCTAssertNil(fetch(fetcher))
+        StubURLProtocol.replies["ip.example"] = .init(body: "203.0.113.7")
+        XCTAssertEqual(fetch(fetcher), "203.0.113.7")
+        XCTAssertEqual(StubURLProtocol.requestCount, 2)
+    }
+
+    func testInvalidateCacheForcesARefetch() {
+        StubURLProtocol.replies["ip.example"] = .init(body: "203.0.113.7")
+        let fetcher = makeFetcher()
+
+        _ = fetch(fetcher)
+        fetcher.invalidateCache()
+        _ = fetch(fetcher)
+        XCTAssertEqual(StubURLProtocol.requestCount, 2)
+    }
+}
+
+// MARK: - StatusChangeTracker
+
+final class StatusChangeTrackerTests: XCTestCase {
+
+    func testFirstStatusIsABaseline() {
+        var t = StatusChangeTracker()
+        XCTAssertFalse(t.isChange(to: .noNetwork))
+    }
+
+    func testRepeatedStatusIsNotAChange() {
+        var t = StatusChangeTracker()
+        _ = t.isChange(to: .connected)
+        XCTAssertFalse(t.isChange(to: .connected))
+    }
+
+    func testRealChangesAreReportedEachTime() {
+        var t = StatusChangeTracker()
+        _ = t.isChange(to: .noNetwork)
+        XCTAssertTrue(t.isChange(to: .connected))
+        XCTAssertTrue(t.isChange(to: .blocked))
+        XCTAssertFalse(t.isChange(to: .blocked))
+        XCTAssertTrue(t.isChange(to: .connected))
+    }
+}

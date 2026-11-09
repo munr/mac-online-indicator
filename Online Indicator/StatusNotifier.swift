@@ -32,3 +32,15 @@ enum StatusNotifier {
         )
     }
 }
+
+/// Tells real status changes from repeats. The first result after launch is a baseline, not a change.
+struct StatusChangeTracker {
+
+    private var last: AppState.ConnectionStatus?
+
+    mutating func isChange(to status: AppState.ConnectionStatus) -> Bool {
+        defer { last = status }
+        guard let last else { return false }
+        return last != status
+    }
+}

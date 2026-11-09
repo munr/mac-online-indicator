@@ -39,7 +39,7 @@ Pick from 17 ready-made icon sets — WiFi, Status, Shield, Globe, Network, and 
 A card-style dropdown gives you a full picture of your connection the moment you click:
 
 - **Hero header** — your Wi-Fi network name, ISP name, and external IP address, all in one place
-- **Speed & latency bar** — live download speed, upload speed, and ping
+- **Speed & latency bar** — live download speed, upload speed, and latency
 - **Network details** — your local IPv4 and IPv6 addresses, one tap to copy either
 - **Router & DNS** — your default gateway (router) IP and active DNS server addresses
 - **Settings & Quit** — a clean two-button footer to jump straight to preferences or exit
@@ -96,10 +96,19 @@ Then open the app normally.
 Online Indicator collects no data. Period.
 
 - No analytics, crash reporting or usage tracking
-- No personal information collected or transmitted
+- No data is sent to the developer or to any analytics service
 - All preferences are stored locally on your Mac
 
-The only outbound network request the app makes is the connectivity probe, a simple HTTP request to `captive.apple.com` (or your custom URL) to check if the internet is reachable. This is identical to what macOS itself does internally.
+The app does make network requests to the services below. Your public IP address is visible to the ones that serve it, as it is to any site you visit. Nothing else about you or your Mac is sent. The external IP/ISP lookups and the speed tests can each be turned off in Settings → Monitoring → Online Lookups.
+
+| Service | Purpose | When |
+|---------|---------|------|
+| `captive.apple.com` (or your custom URLs) | Connectivity probe, identical to what macOS does internally | Every refresh interval |
+| A random subdomain of `captive.apple.com` | Times your DNS resolver | Every refresh interval |
+| `api.ipify.org` | Shows your external IP in the menu | When the menu opens, cached for 60 s |
+| `ipinfo.io` | Shows your ISP in the menu | When the menu opens, cached for 60 s |
+| `speed.cloudflare.com` | Download/upload speed test (about 30 MB) | At launch, on a Wi-Fi or VPN change, and when you tap the stats bar. Automatic runs are skipped on personal hotspots and in Low Data Mode |
+| `raw.githubusercontent.com` | Sparkle update check (the appcast file) | Periodically, while automatic update checks are on |
 
 <br>
 

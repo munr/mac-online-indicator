@@ -16,8 +16,8 @@ struct IPAddressProvider {
     }
 
     /// Reads the current IPv4, IPv6, Wi-Fi name, default gateway, and DNS servers.
-    /// Prefers `en*` interfaces (Wi-Fi / Ethernet), then falls back to any other active non-loopback
-    /// interface (e.g. Thunderbolt Ethernet, USB adapters). Strips the scope-ID suffix from IPv6.
+    /// Addresses come from the primary-route interface when there is one (see `candidateInterfaces`),
+    /// else from any non-virtual interface. Strips the scope-ID suffix from IPv6.
     static func current() -> Addresses {
         var result = Addresses()
         let wifiInterface = CWWiFiClient.shared().interface()
@@ -49,17 +49,7 @@ struct IPAddressProvider {
             }
         }
 
-        // Sort: en* first (lower index = higher priority), then everything else alphabetically.
-        // Exclude purely virtual/tunnel interfaces that won't carry user traffic.
-        let excluded: Set<String> = ["lo", "utun", "ipsec", "llw", "anpi", "bridge", "p2p"]
-        let active = seenNames
-            .filter { name in !excluded.contains(where: { name.hasPrefix($0) }) }
-            .sorted { a, b in
-                let aIsEn = a.hasPrefix("en")
-                let bIsEn = b.hasPrefix("en")
-                if aIsEn != bIsEn { return aIsEn }
-                return a < b
-            }
+        let active = candidateInterfaces(from: seenNames, primary: primaryInterface())
 
         var ipv6Candidates: [String] = []
         ptr = ifaddr
@@ -98,6 +88,24 @@ struct IPAddressProvider {
         return result
     }
 
+    /// Whether there is a usable connection to show addresses for: a Wi-Fi name, an IPv4 address,
+    /// or a global IPv6 one (link-local alone doesn't count, so IPv6-only networks still work).
+    static func hasConnectivity(_ addresses: Addresses) -> Bool {
+        addresses.wifiName != nil || addresses.ipv4 != nil
+            || addresses.ipv6.map { !$0.lowercased().hasPrefix("fe80") } == true
+    }
+
+    /// Interfaces whose addresses are shown. Purely virtual/tunnel interfaces are excluded. When the
+    /// system's primary route (`State:/Network/Global/IPv4`) is on one of the rest, only that one
+    /// counts, so Wi-Fi + Ethernet show the interface actually carrying traffic; otherwise (e.g. a
+    /// full-tunnel VPN is primary) all of them do.
+    static func candidateInterfaces(from names: [String], primary: String?) -> Set<String> {
+        let excluded = ["lo", "utun", "ipsec", "llw", "anpi", "bridge", "p2p"]
+        let real = Set(names.filter { name in !excluded.contains { name.hasPrefix($0) } })
+        if let primary, real.contains(primary) { return [primary] }
+        return real
+    }
+
     /// First global address; falls back to a link-local (`fe80::`) one only if that's all there is,
     /// since getifaddrs lists link-local first and it's rarely what someone wants to copy.
     static func preferredIPv6(from addresses: [String]) -> String? {
@@ -106,11 +114,14 @@ struct IPAddressProvider {
 
     // MARK: - Gateway
 
-    private static func defaultGateway() -> String? {
+    private static func globalIPv4State() -> [String: Any]? {
         guard let store = SCDynamicStoreCreate(nil, "OnlineIndicator" as CFString, nil, nil) else { return nil }
-        guard let dict = SCDynamicStoreCopyValue(store, "State:/Network/Global/IPv4" as CFString) as? [String: Any] else { return nil }
-        return dict["Router"] as? String
+        return SCDynamicStoreCopyValue(store, "State:/Network/Global/IPv4" as CFString) as? [String: Any]
     }
+
+    private static func defaultGateway() -> String? { globalIPv4State()?["Router"] as? String }
+
+    private static func primaryInterface() -> String? { globalIPv4State()?["PrimaryInterface"] as? String }
 
     // MARK: - DNS
 

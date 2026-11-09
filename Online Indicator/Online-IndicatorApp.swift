@@ -31,10 +31,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
     private let ispFetcher        = CachedFetcher.isp
 
     private var currentStatus: AppState.ConnectionStatus = .noNetwork
-    private var hasReportedStatus = false
+    private var statusChanges = StatusChangeTracker()
     private let history = ConnectionHistory()
     private var lastKnownWifiName: String? = nil
+    private var lastAddresses = IPAddressProvider.Addresses()
     private var locationManager: CLLocationManager?
+    private var lastLocationAuthorization: CLAuthorizationStatus?
 
     // MARK: - Lifecycle
 
@@ -67,27 +69,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
         setupStatusItem()
 
         AppState.shared.statusUpdateHandler = { [weak self] status, addresses in
-            guard let self else { return }
-            // Skip the first result after launch: it's a baseline, not a change.
-            if self.hasReportedStatus && status != self.currentStatus {
-                StatusNotifier.statusChanged(to: status)
-            }
-            self.hasReportedStatus = true
-            self.currentStatus = status
-            self.applyIcon(for: status, wifiName: addresses.wifiName, isVPNActive: addresses.isVPNActive)
-            self.menuBuilder.updateConnectionStatus(status)
-            self.history.record(status)
-            self.menuBuilder.updateLastOutage(self.history.summary())
-            if status == .noNetwork {
-                self.menuBuilder.updateProbe(nil)
-                self.menuBuilder.resetDNSLookup()
-                self.menuBuilder.updateAddresses(IPAddressProvider.Addresses())
-                self.menuBuilder.updateExternalIP(nil)
-                self.menuBuilder.updateISP(nil)
-                self.menuBuilder.updateVPNState(false)
-            } else {
-                self.menuBuilder.updateVPNState(addresses.isVPNActive)
-            }
+            self?.handleStatusUpdate(status, addresses)
         }
 
         AppState.shared.probeResultHandler = { [weak self] result in
@@ -117,8 +99,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
             self.updateMenuAddresses(addresses)
             self.invalidateExternalCaches()
             self.fetchExternalData()
-            AppState.shared.forceRefreshPing()
-            AppState.shared.forceRefreshSpeed()
+            // No ping refresh here: this handler runs inside AppState.checkConnection, which
+            // goes on to probe as soon as it returns.
+            AppState.shared.refreshSpeedAutomatically()
         }
 
         AppState.shared.networkAddressesChangedHandler = { [weak self] addresses in
@@ -139,8 +122,31 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
             queue: .main
         ) { [weak self] _ in
             guard let self else { return }
-            let addresses = IPAddressProvider.current()
+            let addresses = self.lastAddresses
             self.applyIcon(for: self.currentStatus, wifiName: addresses.wifiName, isVPNActive: addresses.isVPNActive)
+        }
+    }
+
+    /// Applies a new connection status everywhere it shows: notification, icon, menu and outage history.
+    private func handleStatusUpdate(_ status: AppState.ConnectionStatus, _ addresses: IPAddressProvider.Addresses) {
+        if statusChanges.isChange(to: status) {
+            StatusNotifier.statusChanged(to: status)
+        }
+        currentStatus = status
+        lastAddresses = addresses
+        applyIcon(for: status, wifiName: addresses.wifiName, isVPNActive: addresses.isVPNActive)
+        menuBuilder.updateConnectionStatus(status)
+        history.record(status)
+        menuBuilder.updateLastOutage(history.summary())
+        if status == .noNetwork {
+            menuBuilder.updateProbe(nil)
+            menuBuilder.resetDNSLookup()
+            menuBuilder.updateAddresses(IPAddressProvider.Addresses())
+            menuBuilder.updateExternalIP(nil)
+            menuBuilder.updateISP(nil)
+            menuBuilder.updateVPNState(false)
+        } else {
+            menuBuilder.updateVPNState(addresses.isVPNActive)
         }
     }
 
@@ -172,6 +178,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
 
     private func requestLocationPermissionIfNeeded() {
         let lm = CLLocationManager()
+        // CLLocationManager reports the current status as soon as a delegate is set; remember it so
+        // that initial callback doesn't trigger a second check right after start().
+        lastLocationAuthorization = lm.authorizationStatus
         lm.delegate = self
         locationManager = lm
         if lm.authorizationStatus == .notDetermined {
@@ -180,6 +189,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        guard manager.authorizationStatus != lastLocationAuthorization else { return }
+        lastLocationAuthorization = manager.authorizationStatus
         switch manager.authorizationStatus {
         case .authorizedAlways, .authorizedWhenInUse:
             AppState.shared.restart()
@@ -210,9 +221,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
     }
 
     /// Updates address rows, clearing everything when there is no real connectivity
-    /// (no WiFi and no routable IPv4). Detects WiFi drop to immediately clear EXT/ISP.
+    /// (no WiFi and no routable IPv4 or IPv6). Detects WiFi drop to immediately clear EXT/ISP.
     private func updateMenuAddresses(_ addresses: IPAddressProvider.Addresses) {
-        let hasConnectivity = addresses.wifiName != nil || addresses.ipv4 != nil
+        let hasConnectivity = IPAddressProvider.hasConnectivity(addresses)
         if lastKnownWifiName != nil && addresses.wifiName == nil {
             invalidateExternalCaches()
             menuBuilder.updateExternalIP(nil)
@@ -230,6 +241,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
     }
 
     private func fetchExternalData() {
+        guard UserDefaults.standard.bool(for: .fetchExternalInfo, default: true) else {
+            menuBuilder.updateExternalIP(nil)
+            menuBuilder.updateISP(nil)
+            return
+        }
         externalIPFetcher.fetch { [weak self] ip in self?.menuBuilder.updateExternalIP(ip) }
         ispFetcher.fetch { [weak self] isp in self?.menuBuilder.updateISP(isp) }
     }
@@ -274,43 +290,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
 
     // MARK: - Popovers
 
-    private func showStatusPopover<Content: View>(content: Content, autoDismissAfter delay: Double) {
-        guard let button = statusItem.button else { return }
-
-        let hostingView = NSHostingView(rootView: content)
-        let size        = sanitizedPopoverSize(for: hostingView)
-        hostingView.frame = NSRect(origin: .zero, size: size)
-
-        let controller = NSViewController()
-        controller.view = hostingView
-
-        let popover = NSPopover()
-        popover.behavior            = .transient
-        popover.animates            = true
-        popover.contentSize         = size
-        popover.contentViewController = controller
-
-        let anchor = NSRect(x: button.bounds.midX - 1, y: 0, width: 2, height: button.bounds.height)
-        popover.show(relativeTo: anchor, of: button, preferredEdge: .minY)
-
-        if delay > 0 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { popover.performClose(nil) }
-        }
-    }
-
-    /// SwiftUI can occasionally report non-positive fitting sizes during transient popover creation.
-    /// Clamp to safe minimums to avoid AppKit "Invalid view geometry" warnings.
-    private func sanitizedPopoverSize<Content: View>(for hostingView: NSHostingView<Content>) -> NSSize {
-        hostingView.layoutSubtreeIfNeeded()
-        let measured = hostingView.fittingSize
-        let minWidth: CGFloat = 80
-        let minHeight: CGFloat = 24
-
-        let width = measured.width.isFinite && measured.width > 0 ? measured.width : minWidth
-        let height = measured.height.isFinite && measured.height > 0 ? measured.height : minHeight
-        return NSSize(width: width, height: height)
-    }
-
     private func showCopiedTooltip(text: String) {
         let content = HStack(spacing: 6) {
             Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
@@ -318,7 +297,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        showStatusPopover(content: content, autoDismissAfter: 1.5)
+        StatusPopover.show(content, from: statusItem.button, autoDismissAfter: 1.5)
     }
 
     private func showLaunchTooltip() {
@@ -326,6 +305,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
             .font(.system(size: 13))
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-        showStatusPopover(content: content, autoDismissAfter: 2.0)
+        StatusPopover.show(content, from: statusItem.button, autoDismissAfter: 2.0)
     }
 }

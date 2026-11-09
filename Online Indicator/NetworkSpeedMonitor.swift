@@ -15,25 +15,18 @@ final class NetworkSpeedMonitor {
     var measuringChangedHandler: ((Bool) -> Void)?
     private(set) var snapshot = Snapshot()
 
-    private let queue = DispatchQueue(label: "com.onlineindicator.speedmonitor", qos: .utility)
-    private var downloadTask: URLSessionDataTask?
+    private var downloadTask: URLSessionDownloadTask?
     private var uploadTask: URLSessionDataTask?
     private var isMeasuring = false {
         didSet {
             guard isMeasuring != oldValue else { return }
-            let measuring = isMeasuring
-            if Thread.isMainThread {
-                measuringChangedHandler?(measuring)
-            } else {
-                DispatchQueue.main.async { [weak self] in
-                    self?.measuringChangedHandler?(measuring)
-                }
-            }
+            measuringChangedHandler?(isMeasuring)
         }
     }
 
     // 25 MB download for accuracy on fast connections; 5 MB upload.
-    private static let downloadURL = URL(string: "https://speed.cloudflare.com/__down?bytes=25000000")!
+    private static let downloadBytes = 25_000_000
+    private static let downloadURL = URL(string: "https://speed.cloudflare.com/__down?bytes=\(downloadBytes)")!
     private static let uploadURL   = URL(string: "https://speed.cloudflare.com/__up")!
     private let uploadPayload = Data(count: 5_000_000)
 
@@ -47,28 +40,24 @@ final class NetworkSpeedMonitor {
 
     // MARK: - Control
 
+    /// Main thread only, like everything else on this class; the work itself is async URLSession tasks.
     func runNow() {
-        queue.async { [weak self] in
-            guard let self, !self.isMeasuring else { return }
-            self.isMeasuring = true
-            self.measureSpeeds()
-        }
+        guard !isMeasuring else { return }
+        isMeasuring = true
+        measureSpeeds()
     }
 
+    /// Cancelled tasks complete with `nil`, so the normal completion path clears `isMeasuring`.
     func cancel() {
         downloadTask?.cancel()
         uploadTask?.cancel()
-        queue.async { self.isMeasuring = false }
     }
 
     // MARK: - Ping (pushed from AppState on every connectivity check)
 
     func updatePing(_ ms: Double) {
         snapshot.pingMs = ms
-        let snap = snapshot
-        DispatchQueue.main.async { [weak self] in
-            self?.snapshotHandler?(snap)
-        }
+        snapshotHandler?(snapshot)
     }
 
     // MARK: - Speed measurement
@@ -102,18 +91,19 @@ final class NetworkSpeedMonitor {
     private func measureDownload(completion: @escaping (Double?) -> Void) {
         let start = Date()
         downloadTask?.cancel()
-        let task = session.dataTask(with: Self.downloadURL) { data, response, error in
+        // A download task streams to disk instead of buffering all 25 MB in memory.
+        let task = session.downloadTask(with: Self.downloadURL) { fileURL, response, error in
             if let urlError = error as? URLError, urlError.code == .cancelled {
                 completion(nil)
                 return
             }
-            guard error == nil, let data, (response as? HTTPURLResponse)?.statusCode == 200 else {
+            guard error == nil, fileURL != nil, (response as? HTTPURLResponse)?.statusCode == 200 else {
                 completion(nil)
                 return
             }
             let elapsed = Date().timeIntervalSince(start)
             guard elapsed > 0 else { completion(nil); return }
-            completion(Double(data.count) * 8 / elapsed / 1_000_000)
+            completion(Double(Self.downloadBytes) * 8 / elapsed / 1_000_000)
         }
         downloadTask = task
         task.resume()

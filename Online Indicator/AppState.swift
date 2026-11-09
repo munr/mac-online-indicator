@@ -12,6 +12,7 @@ final class AppState {
     private var debounceTimer: Timer?
     private var lastWifiSSID: String?
     private var dnsLookupInFlight = false
+    private var hasChecked = false
 
     enum ConnectionStatus {
         case connected
@@ -41,13 +42,21 @@ final class AppState {
         return saved == 0 ? 30 : saved
     }
 
+    private var speedTestsEnabled: Bool { UserDefaults.standard.bool(for: .runSpeedTests, default: true) }
+
     // MARK: - Public Start
 
     func start() {
 
         // Listen for network interface changes (WiFi off, Ethernet unplugged)
         networkMonitor.pathChangedHandler = { [weak self] in
-            self?.debouncedImmediateCheck()
+            guard let self else { return }
+            if self.hasChecked {
+                self.debouncedImmediateCheck()
+            } else {
+                // First path update: the monitor now knows the real state, so run the startup check.
+                self.checkConnection()
+            }
         }
 
         networkMonitor.startMonitoring()
@@ -64,13 +73,13 @@ final class AppState {
 
         startTimer()
 
-        // Immediate ping/connectivity check on startup
-        checkConnection()
+        // The startup connectivity check runs on the first path update (see pathChangedHandler);
+        // checking now would read the monitor before it knows the real state.
 
         // Short delay before speed test to avoid cold-start DNS/TCP/TLS overhead
         // skewing the first measurement lower than actual throughput.
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
-            self?.speedMonitor.runNow()
+            self?.refreshSpeedAutomatically()
         }
     }
 
@@ -89,8 +98,17 @@ final class AppState {
         checkConnection()
     }
 
+    /// User-initiated: runs even on a metered connection.
     func forceRefreshSpeed() {
+        guard speedTestsEnabled else { return }
         speedMonitor.runNow()
+    }
+
+    /// For speed tests the app starts itself (launch, Wi-Fi or VPN change): skipped on a metered
+    /// connection, since each run transfers about 30 MB.
+    func refreshSpeedAutomatically() {
+        guard !networkMonitor.isMetered else { return }
+        forceRefreshSpeed()
     }
 
     // MARK: - Timer
@@ -126,7 +144,9 @@ final class AppState {
 
     private func checkConnection() {
 
-        // Call current() once; pass the snapshot to all handlers so they don't re-query.
+        hasChecked = true
+
+        // One snapshot for the synchronous handlers below; the async probe result re-reads.
         let addresses = IPAddressProvider.current()
 
         let ssidChanged = addresses.wifiName != lastWifiSSID
@@ -146,6 +166,7 @@ final class AppState {
 
         if !networkMonitor.isConnected {
             connectivityChecker.cancelPending()
+            speedMonitor.cancel()
             statusUpdateHandler?(.noNetwork, addresses)
             return
         }
@@ -155,12 +176,13 @@ final class AppState {
         // Attempt outbound requests (delivered on the main thread)
         connectivityChecker.checkOutboundConnection { [weak self] result in
             self?.probeResultHandler?(result)
-            self?.statusUpdateHandler?(result.reachable ? .connected : .blocked, addresses)
+            // The probe can take up to 5 s; re-read so the icon doesn't show a stale SSID/VPN state.
+            self?.statusUpdateHandler?(result.reachable ? .connected : .blocked, IPAddressProvider.current())
             if let ms = result.latencyMs {
                 self?.speedMonitor.updatePing(ms)
             }
             if ssidChanged && result.reachable {
-                self?.speedMonitor.runNow()
+                self?.refreshSpeedAutomatically()
             }
         }
     }

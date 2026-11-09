@@ -66,7 +66,14 @@ final class ConnectivityChecker {
     private var currentTasks: [URLSessionDataTask] = []
     private var generation = 0   // main thread only; lets a newer check discard an older one
 
-    private let session: URLSession = {
+    private let session: URLSession
+
+    /// `session` is injectable so tests can stub the network.
+    init(session: URLSession = ConnectivityChecker.makeSession()) {
+        self.session = session
+    }
+
+    private static func makeSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 5
         configuration.timeoutIntervalForResource = 5
@@ -74,7 +81,7 @@ final class ConnectivityChecker {
         configuration.httpMaximumConnectionsPerHost = 1
         configuration.httpAdditionalHeaders = ["Connection": "close"]
         return URLSession(configuration: configuration)
-    }()
+    }
 
     /// Drops any probe still in flight so its late result can't overwrite a newer status.
     /// Main thread only.
@@ -86,12 +93,12 @@ final class ConnectivityChecker {
 
     /// Probes every target in parallel. Must be called on the main thread; `completion`
     /// is delivered on the main thread, and not at all if a newer check superseded this one.
-    func checkOutboundConnection(completion: @escaping (ProbeResult) -> Void) {
+    func checkOutboundConnection(targets: [String] = ConnectivityChecker.targets,
+                                 completion: @escaping (ProbeResult) -> Void) {
 
         cancelPending()
         let gen = generation
 
-        let targets = Self.targets
         let group = DispatchGroup()
         let lock = NSLock()
         var outcomes = [Outcome?](repeating: nil, count: targets.count)

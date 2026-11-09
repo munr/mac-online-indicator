@@ -16,17 +16,26 @@ final class CachedFetcher {
     private var cachedValue: String?
     private var cacheTime: Date?
 
-    private let session: URLSession = {
+    private let session: URLSession
+    private let now: () -> Date
+
+    /// `session` and `now` are injectable so tests can stub the network and the clock.
+    init(url: URL,
+         session: URLSession = CachedFetcher.makeSession(),
+         now: @escaping () -> Date = Date.init,
+         transform: @escaping (Data) -> String?) {
+        self.url       = url
+        self.session   = session
+        self.now       = now
+        self.transform = transform
+    }
+
+    private nonisolated static func makeSession() -> URLSession {
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest  = 10
         config.timeoutIntervalForResource = 10
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
         return URLSession(configuration: config)
-    }()
-
-    init(url: URL, transform: @escaping (Data) -> String?) {
-        self.url       = url
-        self.transform = transform
     }
 
     /// Fetches the value, using the in-memory cache if still within the TTL.
@@ -34,7 +43,7 @@ final class CachedFetcher {
     func fetch(completion: @escaping @MainActor (String?) -> Void) {
         if let value = cachedValue,
            let time = cacheTime,
-           Date().timeIntervalSince(time) < Self.cacheTTL {
+           now().timeIntervalSince(time) < Self.cacheTTL {
             completion(value)
             return
         }
@@ -42,19 +51,20 @@ final class CachedFetcher {
         currentTask?.cancel()
         currentTask = nil
 
+        let transform = self.transform   // captured here: the completion runs off the main actor
         let task = session.dataTask(with: url) { [weak self] data, response, error in
             if let urlError = error as? URLError, urlError.code == .cancelled { return }
             let result: String? = {
                 // An error page (e.g. a 429 rate limit) must not be shown as the IP or ISP.
                 guard let data, (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
-                return self?.transform(data)
+                return transform(data)
             }()
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.currentTask = nil
                 if let result {
                     self.cachedValue = result
-                    self.cacheTime   = Date()
+                    self.cacheTime   = self.now()
                 }
                 completion(result)
             }

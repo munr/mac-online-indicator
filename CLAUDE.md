@@ -58,7 +58,7 @@ NetworkMonitor (NWPathMonitor)
 ```
 
 `AppState` also owns a `NetworkSpeedMonitor` (download/upload/ping) and tracks `isVPNActive`.
-`AppState` owns the timer (default 30 s, configurable) and debounces rapid `NetworkMonitor` path changes (1 s). Settings changes call `AppState.restart()` to reset the timer and probe immediately.
+`NetworkMonitor` is not read until its first path update (`currentPath` is `unsatisfied` right after `start()`), so the startup check runs from that first callback. `AppState` owns the timer (default 30 s, configurable) and debounces rapid `NetworkMonitor` path changes (1 s). Settings changes call `AppState.restart()` to reset the timer and probe immediately.
 
 **Probe targets:** the `pingURL` setting holds up to 5 comma/whitespace-separated URLs (`ConnectivityChecker.parseTargets`); empty means `captive.apple.com`. All are probed in parallel; the app is *connected* if any succeeds, and `ProbeResult` records which failed. A 2xx/3xx answer from the default Apple probe without "Success" in the body is flagged as a captive portal (`ProbeResult.captivePortal`). `checkOutboundConnection` must be called on the main thread and delivers its result on the main thread.
 
@@ -79,7 +79,7 @@ A hidden-by-default "Network login required → Sign in" row sits under the stat
 
 `MenuBuilder` builds the `NSMenu` once. Static rows are updated via stored view references. DNS uses integer tag `dnsTag = 800` so rows can be removed and re-inserted without rebuilding the full menu. There is no `knownNetworksTag`.
 
-`IPAddressProvider.current()` is called on every connectivity check cycle and on every menu open (`menuWillOpen`).
+`IPAddressProvider.current()` is called on every connectivity check cycle, again when a probe completes (so the icon reflects the latest SSID/VPN state), and on every menu open (`menuWillOpen`). Addresses come from the interface carrying the primary route (`State:/Network/Global/IPv4`), falling back to any non-virtual interface.
 
 ### External data
 
@@ -95,7 +95,7 @@ Caches are invalidated on WiFi drop or VPN state change.
 
 ### Speed monitoring
 
-`NetworkSpeedMonitor` is owned by `AppState`. Speed tests run against Cloudflare (`__down`/`__up` endpoints). Tests are triggered on app start (after a 5 s delay), on WiFi SSID change, and on explicit user refresh. Ping latency is measured on every connectivity check via the `ConnectivityChecker` elapsed time.
+`NetworkSpeedMonitor` is owned by `AppState`. Speed tests run against Cloudflare (`__down`/`__up` endpoints). Tests are triggered on app start (after a 5 s delay), on WiFi SSID change, on VPN change, and on explicit user refresh. The automatic triggers go through `AppState.refreshSpeedAutomatically()`, which skips metered paths (`NetworkMonitor.isMetered`: personal hotspot or Low Data Mode) because a run moves about 30 MB; a user tap always runs. Both can be turned off (`runSpeedTests`; the external IP/ISP fetchers have `fetchExternalInfo`) in Settings → Monitoring → Online Lookups. The monitor is main-thread only and is cancelled when the network drops. Ping latency is measured on every connectivity check via the `ConnectivityChecker` elapsed time.
 
 ### Icon customisation
 
@@ -115,7 +115,7 @@ All `UserDefaults` keys are defined in `UserDefaultsKeys.swift` as `UserDefaults
 
 ### Tests
 
-`OnlineIndicatorTests/` is a synchronized-folder unit-test target hosted by the app (`@testable import Online_Indicator`); `AppDelegate` returns early from `applicationDidFinishLaunching` when running under XCTest. Console noise about `com.apple.linkd.autoShortcut` is harmless. New code with real logic gets a test here. `.github/workflows/test.yml` runs the suite on every pull request and push to `main`.
+`OnlineIndicatorTests/` is a synchronized-folder unit-test target hosted by the app (`@testable import Online_Indicator`); `AppDelegate` returns early from `applicationDidFinishLaunching` when running under XCTest. Console noise about `com.apple.linkd.autoShortcut` is harmless. `ConnectivityChecker` and `CachedFetcher` take an injectable `URLSession` (and `CachedFetcher` a clock); tests use `StubURLProtocol` in `OnlineIndicatorTests.swift` to fake responses. New code with real logic gets a test here. `.github/workflows/test.yml` runs the suite on every pull request and push to `main`.
 
 ### Key files
 
@@ -132,4 +132,5 @@ All `UserDefaults` keys are defined in `UserDefaultsKeys.swift` as `UserDefaults
 | `IconPreferences.swift` | Read/write per-status icon slots; posts `iconPreferencesChanged` notification |
 | `IPAddressProvider.swift` | Reads live IPv4/IPv6/gateway/DNS/WiFi name+RSSI/VPN state |
 | `UserDefaultsKeys.swift` | Central registry of all `UserDefaults` keys |
+| `StatusPopover.swift` | Transient popovers under the status item ("Copied", launch tooltip) |
 | `WindowCoordinator.swift` | Manages Settings and Onboarding `NSWindow` lifecycle |
