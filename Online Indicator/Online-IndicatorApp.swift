@@ -34,6 +34,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
     private var hasReportedStatus = false
     private let history = ConnectionHistory()
     private var lastKnownWifiName: String? = nil
+    private var lastAddresses = IPAddressProvider.Addresses()
     private var locationManager: CLLocationManager?
     private var lastLocationAuthorization: CLAuthorizationStatus?
 
@@ -75,6 +76,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
             }
             self.hasReportedStatus = true
             self.currentStatus = status
+            self.lastAddresses = addresses
             self.applyIcon(for: status, wifiName: addresses.wifiName, isVPNActive: addresses.isVPNActive)
             self.menuBuilder.updateConnectionStatus(status)
             self.history.record(status)
@@ -141,7 +143,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, CLLocationMa
             queue: .main
         ) { [weak self] _ in
             guard let self else { return }
-            let addresses = IPAddressProvider.current()
+            let addresses = self.lastAddresses
             self.applyIcon(for: self.currentStatus, wifiName: addresses.wifiName, isVPNActive: addresses.isVPNActive)
         }
     }
