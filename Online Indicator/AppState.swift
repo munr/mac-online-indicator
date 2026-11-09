@@ -42,6 +42,8 @@ final class AppState {
         return saved == 0 ? 30 : saved
     }
 
+    private var speedTestsEnabled: Bool { UserDefaults.standard.bool(for: .runSpeedTests, default: true) }
+
     // MARK: - Public Start
 
     func start() {
@@ -98,6 +100,7 @@ final class AppState {
 
     /// User-initiated: runs even on a metered connection.
     func forceRefreshSpeed() {
+        guard speedTestsEnabled else { return }
         speedMonitor.runNow()
     }
 
@@ -105,7 +108,7 @@ final class AppState {
     /// connection, since each run transfers about 30 MB.
     func refreshSpeedAutomatically() {
         guard !networkMonitor.isMetered else { return }
-        speedMonitor.runNow()
+        forceRefreshSpeed()
     }
 
     // MARK: - Timer

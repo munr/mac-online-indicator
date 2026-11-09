@@ -33,6 +33,7 @@ struct SettingsView: View {
     @AppStorage(UserDefaults.Key.showInternalIPv6.rawValue) private var showInternalIPv6 = true
     @AppStorage(UserDefaults.Key.notifyOnStatusChange.rawValue) private var notifyOnStatusChange = false
     @AppStorage(UserDefaults.Key.fetchExternalInfo.rawValue) private var fetchExternalInfo = true
+    @AppStorage(UserDefaults.Key.runSpeedTests.rawValue) private var runSpeedTests = true
 
     // MARK: - Icon set helpers
 
@@ -323,6 +324,19 @@ struct SettingsView: View {
                             onTap: { fetchExternalInfo.toggle() }
                         ) {
                             Toggle("", isOn: $fetchExternalInfo)
+                                .labelsHidden()
+                        }
+
+                        Divider().padding(.leading, 56)
+
+                        SettingsRow(
+                            icon: "speedometer",
+                            iconColor: .purple,
+                            title: "Speed Tests",
+                            subtitle: "Download and upload tests against Cloudflare, about 30 MB each. Skipped automatically on hotspots and Low Data Mode",
+                            onTap: { runSpeedTests.toggle() }
+                        ) {
+                            Toggle("", isOn: $runSpeedTests)
                                 .labelsHidden()
                         }
                     }

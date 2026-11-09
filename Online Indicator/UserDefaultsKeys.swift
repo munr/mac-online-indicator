@@ -9,6 +9,7 @@ extension UserDefaults {
         case showInternalIPv6   = "showInternalIPv6"
         case notifyOnStatusChange = "notifyOnStatusChange"
         case fetchExternalInfo  = "fetchExternalInfo"
+        case runSpeedTests      = "runSpeedTests"
         // Icon preferences — composite keys built as "<prefix>.<statusKey>" by IconPreferences.
         // The per-status suffix ("connected", "blocked", "noNetwork") is appended at runtime.
         case iconSymbolPrefix       = "iconSymbol"
