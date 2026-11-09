@@ -39,7 +39,7 @@ Pick from 17 ready-made icon sets — WiFi, Status, Shield, Globe, Network, and 
 A card-style dropdown gives you a full picture of your connection the moment you click:
 
 - **Hero header** — your Wi-Fi network name, ISP name, and external IP address, all in one place
-- **Speed & latency bar** — live download speed, upload speed, and ping
+- **Speed & latency bar** — live download speed, upload speed, and latency
 - **Network details** — your local IPv4 and IPv6 addresses, one tap to copy either
 - **Router & DNS** — your default gateway (router) IP and active DNS server addresses
 - **Settings & Quit** — a clean two-button footer to jump straight to preferences or exit

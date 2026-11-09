@@ -1,6 +1,6 @@
 import AppKit
 
-/// Three-column stats bar: DOWN | UP | PING, with fractional auto-layout columns.
+/// Three-column stats bar: DOWN | UP | LATENCY, with fractional auto-layout columns.
 /// Clicking anywhere refreshes speed and ping.
 final class MenuStatsBarView: MenuHoverView {
 
@@ -46,7 +46,7 @@ final class MenuStatsBarView: MenuHoverView {
         // Each column is a vertical stack: header, value, unit — centered horizontally.
         let col1 = makeColumnStack(header: "DOWN", value: downValueLabel, unit: downUnitLabel)
         let col2 = makeColumnStack(header: "UP",   value: upValueLabel,   unit: upUnitLabel)
-        let col3 = makeColumnStack(header: "PING", value: pingValueLabel, unit: pingUnitLabel)
+        let col3 = makeColumnStack(header: "LATENCY", value: pingValueLabel, unit: pingUnitLabel)
 
         let div1 = makeSeparator(vertical: true)
         let div2 = makeSeparator(vertical: true)
@@ -178,11 +178,11 @@ final class MenuStatsBarView: MenuHoverView {
     override func accessibilityRole() -> NSAccessibility.Role? { .button }
 
     override func accessibilityLabel() -> String? {
-        let ping     = pingValueLabel.stringValue == menuNoValue ? "ping unavailable" : "ping \(pingValueLabel.stringValue) \(pingUnitLabel.stringValue)"
+        let ping     = pingValueLabel.stringValue == menuNoValue ? "latency unavailable" : "latency \(pingValueLabel.stringValue) \(pingUnitLabel.stringValue)"
         let download = downValueLabel.stringValue == menuNoValue ? "download unavailable" : "download \(downValueLabel.stringValue) \(downUnitLabel.stringValue)"
         let upload   = upValueLabel.stringValue   == menuNoValue ? "upload unavailable"   : "upload \(upValueLabel.stringValue) \(upUnitLabel.stringValue)"
         return "\(download), \(upload), \(ping)"
     }
 
-    override func accessibilityHelp() -> String? { "Click to refresh speed and ping" }
+    override func accessibilityHelp() -> String? { "Click to refresh speed and latency" }
 }
