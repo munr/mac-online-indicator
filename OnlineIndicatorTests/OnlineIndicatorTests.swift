@@ -141,3 +141,18 @@ final class IPv6PreferenceTests: XCTestCase {
         XCTAssertNil(IPAddressProvider.preferredIPv6(from: []))
     }
 }
+
+final class CandidateInterfaceTests: XCTestCase {
+
+    func testPrimaryInterfaceWinsOverOthers() {
+        XCTAssertEqual(IPAddressProvider.candidateInterfaces(from: ["lo0", "en0", "en5"], primary: "en5"), ["en5"])
+    }
+
+    func testTunnelPrimaryFallsBackToAllRealInterfaces() {
+        XCTAssertEqual(IPAddressProvider.candidateInterfaces(from: ["lo0", "en0", "utun3", "en5"], primary: "utun3"), ["en0", "en5"])
+    }
+
+    func testNoPrimaryKeepsAllRealInterfaces() {
+        XCTAssertEqual(IPAddressProvider.candidateInterfaces(from: ["lo0", "awdl0", "bridge0", "en0"], primary: nil), ["awdl0", "en0"])
+    }
+}
