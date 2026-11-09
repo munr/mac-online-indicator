@@ -99,7 +99,7 @@ Online Indicator collects no data. Period.
 - No data is sent to the developer or to any analytics service
 - All preferences are stored locally on your Mac
 
-The app does make network requests to the services below. Your public IP address is visible to the ones that serve it, as it is to any site you visit. Nothing else about you or your Mac is sent.
+The app does make network requests to the services below. Your public IP address is visible to the ones that serve it, as it is to any site you visit. Nothing else about you or your Mac is sent. The external IP/ISP lookups and the speed tests can each be turned off in Settings → Monitoring → Online Lookups.
 
 | Service | Purpose | When |
 |---------|---------|------|

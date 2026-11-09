@@ -95,7 +95,7 @@ Caches are invalidated on WiFi drop or VPN state change.
 
 ### Speed monitoring
 
-`NetworkSpeedMonitor` is owned by `AppState`. Speed tests run against Cloudflare (`__down`/`__up` endpoints). Tests are triggered on app start (after a 5 s delay), on WiFi SSID change, on VPN change, and on explicit user refresh. The automatic triggers go through `AppState.refreshSpeedAutomatically()`, which skips metered paths (`NetworkMonitor.isMetered`: personal hotspot or Low Data Mode) because a run moves about 30 MB; a user tap always runs. The monitor is main-thread only and is cancelled when the network drops. Ping latency is measured on every connectivity check via the `ConnectivityChecker` elapsed time.
+`NetworkSpeedMonitor` is owned by `AppState`. Speed tests run against Cloudflare (`__down`/`__up` endpoints). Tests are triggered on app start (after a 5 s delay), on WiFi SSID change, on VPN change, and on explicit user refresh. The automatic triggers go through `AppState.refreshSpeedAutomatically()`, which skips metered paths (`NetworkMonitor.isMetered`: personal hotspot or Low Data Mode) because a run moves about 30 MB; a user tap always runs. Both can be turned off (`runSpeedTests`; the external IP/ISP fetchers have `fetchExternalInfo`) in Settings → Monitoring → Online Lookups. The monitor is main-thread only and is cancelled when the network drops. Ping latency is measured on every connectivity check via the `ConnectivityChecker` elapsed time.
 
 ### Icon customisation
 
