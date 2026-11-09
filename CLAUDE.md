@@ -115,7 +115,7 @@ All `UserDefaults` keys are defined in `UserDefaultsKeys.swift` as `UserDefaults
 
 ### Tests
 
-`OnlineIndicatorTests/` is a synchronized-folder unit-test target hosted by the app (`@testable import Online_Indicator`); `AppDelegate` returns early from `applicationDidFinishLaunching` when running under XCTest. Console noise about `com.apple.linkd.autoShortcut` is harmless. New code with real logic gets a test here. `.github/workflows/test.yml` runs the suite on every pull request and push to `main`.
+`OnlineIndicatorTests/` is a synchronized-folder unit-test target hosted by the app (`@testable import Online_Indicator`); `AppDelegate` returns early from `applicationDidFinishLaunching` when running under XCTest. Console noise about `com.apple.linkd.autoShortcut` is harmless. `ConnectivityChecker` and `CachedFetcher` take an injectable `URLSession` (and `CachedFetcher` a clock); tests use `StubURLProtocol` in `OnlineIndicatorTests.swift` to fake responses. New code with real logic gets a test here. `.github/workflows/test.yml` runs the suite on every pull request and push to `main`.
 
 ### Key files
 
@@ -132,4 +132,5 @@ All `UserDefaults` keys are defined in `UserDefaultsKeys.swift` as `UserDefaults
 | `IconPreferences.swift` | Read/write per-status icon slots; posts `iconPreferencesChanged` notification |
 | `IPAddressProvider.swift` | Reads live IPv4/IPv6/gateway/DNS/WiFi name+RSSI/VPN state |
 | `UserDefaultsKeys.swift` | Central registry of all `UserDefaults` keys |
+| `StatusPopover.swift` | Transient popovers under the status item ("Copied", launch tooltip) |
 | `WindowCoordinator.swift` | Manages Settings and Onboarding `NSWindow` lifecycle |
