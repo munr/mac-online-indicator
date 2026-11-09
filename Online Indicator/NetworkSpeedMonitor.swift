@@ -15,7 +15,7 @@ final class NetworkSpeedMonitor {
     var measuringChangedHandler: ((Bool) -> Void)?
     private(set) var snapshot = Snapshot()
 
-    private var downloadTask: URLSessionDataTask?
+    private var downloadTask: URLSessionDownloadTask?
     private var uploadTask: URLSessionDataTask?
     private var isMeasuring = false {
         didSet {
@@ -25,7 +25,8 @@ final class NetworkSpeedMonitor {
     }
 
     // 25 MB download for accuracy on fast connections; 5 MB upload.
-    private static let downloadURL = URL(string: "https://speed.cloudflare.com/__down?bytes=25000000")!
+    private static let downloadBytes = 25_000_000
+    private static let downloadURL = URL(string: "https://speed.cloudflare.com/__down?bytes=\(downloadBytes)")!
     private static let uploadURL   = URL(string: "https://speed.cloudflare.com/__up")!
     private let uploadPayload = Data(count: 5_000_000)
 
@@ -90,18 +91,19 @@ final class NetworkSpeedMonitor {
     private func measureDownload(completion: @escaping (Double?) -> Void) {
         let start = Date()
         downloadTask?.cancel()
-        let task = session.dataTask(with: Self.downloadURL) { data, response, error in
+        // A download task streams to disk instead of buffering all 25 MB in memory.
+        let task = session.downloadTask(with: Self.downloadURL) { fileURL, response, error in
             if let urlError = error as? URLError, urlError.code == .cancelled {
                 completion(nil)
                 return
             }
-            guard error == nil, let data, (response as? HTTPURLResponse)?.statusCode == 200 else {
+            guard error == nil, fileURL != nil, (response as? HTTPURLResponse)?.statusCode == 200 else {
                 completion(nil)
                 return
             }
             let elapsed = Date().timeIntervalSince(start)
             guard elapsed > 0 else { completion(nil); return }
-            completion(Double(data.count) * 8 / elapsed / 1_000_000)
+            completion(Double(Self.downloadBytes) * 8 / elapsed / 1_000_000)
         }
         downloadTask = task
         task.resume()
